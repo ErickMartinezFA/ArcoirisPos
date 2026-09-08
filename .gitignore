@@ -13,3 +13,8 @@ frontend/.env
 dist/
 build/
 .vscode/
+
+# Claude Code y Python
+.claude/
+__pycache__/
+*.py
