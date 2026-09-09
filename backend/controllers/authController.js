@@ -6,20 +6,20 @@ const logActivity = require('../utils/logActivity');
 exports.login = async (req, res) => {
     const { username, password } = req.body;
     try {
-        const [rows] = await db.query("SELECT * FROM usuario WHERE usuario = ?", [username]);
+        const [rows] = await db.query("SELECT * FROM usuario WHERE username = ?", [username]);
         const user = rows[0];
 
         if (!user) {
             return res.status(401).json({ error: "El operador no existe" });
         }
 
-        const passwordCorrecto = await bcrypt.compare(password, user.contrasena);
+        const passwordCorrecto = await bcrypt.compare(password, user.password);
         if (!passwordCorrecto) {
             return res.status(401).json({ error: "Clave de acceso incorrecta" });
         }
 
         const token = jwt.sign(
-            { usuario_id: user.id, sucursal_id: user.sucursal_id, rol: user.rol, username: user.usuario },
+            { usuario_id: user.usuario_id, sucursal_id: user.sucursal_id, rol: user.rol, username: user.username },
             process.env.JWT_SECRET,
             { expiresIn: '24h' }
         );
@@ -27,14 +27,14 @@ exports.login = async (req, res) => {
         // Log de acceso
         const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket?.remoteAddress || null;
         await db.query(
-            "INSERT INTO actividad_usuario (usuario_id, username, accion, modulo) VALUES (?, ?, 'LOGIN', 'autenticacion')",
-            [user.id, user.usuario]
+            "INSERT INTO actividad_usuario (usuario_id, username, accion, descripcion, ip) VALUES (?, ?, 'LOGIN', 'Inicio de sesión', ?)",
+            [user.usuario_id, user.username, ip]
         );
 
         res.json({
-            usuario_id: user.id,
+            usuario_id: user.usuario_id,
             sucursal_id: user.sucursal_id,
-            nombre: user.usuario,
+            nombre: user.username,
             rol: user.rol,
             token,
         });
@@ -101,7 +101,7 @@ exports.barcodeSearch = async (req, res) => {
 // Usada en el login para poblar el selector de sucursales antes de autenticarse
 exports.getSucursales = async (req, res) => {
     try {
-        const [sucursales] = await db.query('SELECT id AS sucursal_id, nombre FROM sucursal WHERE activo = 1');
+        const [sucursales] = await db.query('SELECT sucursal_id, Nombre FROM sucursal');
         res.json(sucursales);
     } catch (error) {
         console.error("Error en getSucursales:", error.message);
