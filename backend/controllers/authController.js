@@ -6,35 +6,35 @@ const logActivity = require('../utils/logActivity');
 exports.login = async (req, res) => {
     const { username, password } = req.body;
     try {
-        const [rows] = await db.query("SELECT * FROM usuario WHERE username = ?", [username]);
+        const [rows] = await db.query("SELECT * FROM usuario WHERE usuario = ?", [username]);
         const user = rows[0];
 
         if (!user) {
             return res.status(401).json({ error: "El operador no existe" });
         }
 
-        const passwordCorrecto = await bcrypt.compare(password, user.password);
+        const passwordCorrecto = await bcrypt.compare(password, user.contrasena);
         if (!passwordCorrecto) {
             return res.status(401).json({ error: "Clave de acceso incorrecta" });
         }
 
         const token = jwt.sign(
-            { usuario_id: user.usuario_id, sucursal_id: user.sucursal_id, rol: user.rol, username: user.username },
+            { usuario_id: user.id, sucursal_id: user.sucursal_id, rol: user.rol, username: user.usuario },
             process.env.JWT_SECRET,
             { expiresIn: '24h' }
         );
 
-        // Log de acceso — inyectar usuario_id/username manualmente porque aún no hay req.user
+        // Log de acceso
         const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket?.remoteAddress || null;
         await db.query(
-            "INSERT INTO actividad_usuario (usuario_id, username, accion, descripcion, ip) VALUES (?, ?, 'LOGIN', 'Inicio de sesión', ?)",
-            [user.usuario_id, user.username, ip]
+            "INSERT INTO actividad_usuario (usuario_id, username, accion, modulo) VALUES (?, ?, 'LOGIN', 'autenticacion')",
+            [user.id, user.usuario]
         );
 
         res.json({
-            usuario_id: user.usuario_id,
+            usuario_id: user.id,
             sucursal_id: user.sucursal_id,
-            nombre: user.username,
+            nombre: user.usuario,
             rol: user.rol,
             token,
         });
