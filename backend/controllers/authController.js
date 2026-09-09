@@ -101,7 +101,7 @@ exports.barcodeSearch = async (req, res) => {
 // Usada en el login para poblar el selector de sucursales antes de autenticarse
 exports.getSucursales = async (req, res) => {
     try {
-        const [sucursales] = await db.query('SELECT sucursal_id, Nombre FROM sucursal');
+        const [sucursales] = await db.query('SELECT sucursal_id, Nombre AS nombre FROM sucursal');
         res.json(sucursales);
     } catch (error) {
         console.error("Error en getSucursales:", error.message);
