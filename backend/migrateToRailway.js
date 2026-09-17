@@ -127,26 +127,27 @@ const copyOrder = [
   'actividad_usuario',
 ];
 
-async function migrate() {
+async function runMigration() {
+  const log = [];
   const src = await source.getConnection();
   const tgt = await target.getConnection();
 
   try {
-    console.log('🗑️  Preparando esquema limpio en Railway...');
+    log.push('Preparando esquema limpio en Railway...');
     for (const stmt of dropAll.split(';').map(s => s.trim()).filter(Boolean)) {
       await tgt.query(stmt);
     }
     for (const stmt of tables.split(';').map(s => s.trim()).filter(Boolean)) {
       await tgt.query(stmt);
     }
-    console.log('✅ Esquema creado en Railway');
+    log.push('Esquema creado en Railway');
 
     await tgt.query('SET FOREIGN_KEY_CHECKS = 0');
 
     for (const table of copyOrder) {
       const [rows] = await src.query(`SELECT * FROM ${table}`);
       if (rows.length === 0) {
-        console.log(`⏭️  ${table}: 0 filas, se omite`);
+        log.push(`${table}: 0 filas, se omite`);
         continue;
       }
       const columns = Object.keys(rows[0]);
@@ -154,15 +155,12 @@ async function migrate() {
       const sql = `INSERT INTO ${table} (${columns.join(',')}) VALUES ${rows.map(() => placeholders).join(',')}`;
       const values = rows.flatMap(r => columns.map(c => r[c]));
       await tgt.query(sql, values);
-      console.log(`✅ ${table}: ${rows.length} filas migradas`);
+      log.push(`${table}: ${rows.length} filas migradas`);
     }
 
     await tgt.query('SET FOREIGN_KEY_CHECKS = 1');
-
-    console.log('\n🎉 Migración completa. Verifica los datos en Railway antes de dar de baja Clever Cloud.');
-  } catch (error) {
-    console.error('❌ Error en migración:', error.message);
-    process.exit(1);
+    log.push('Migración completa');
+    return log;
   } finally {
     src.release();
     tgt.release();
@@ -171,4 +169,4 @@ async function migrate() {
   }
 }
 
-migrate();
+module.exports = { runMigration };

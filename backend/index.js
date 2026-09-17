@@ -20,6 +20,20 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.get("/", (req, res) => res.sendStatus(200));
 
+// TEMPORAL — migración única de Clever Cloud a Railway. Borrar después de usar.
+app.get("/api/admin/migrate-to-railway", async (req, res) => {
+    if (req.query.secret !== process.env.MIGRATION_SECRET) {
+        return res.status(403).json({ error: "Forbidden" });
+    }
+    try {
+        const { runMigration } = require('./migrateToRailway');
+        const log = await runMigration();
+        res.json({ message: "Migración completa", log });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Productos e inventario
 app.get('/api/products', auth, productController.getProducts);
 app.post('/api/products', auth, productController.createProduct);
