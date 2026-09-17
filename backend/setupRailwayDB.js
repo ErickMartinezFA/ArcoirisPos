@@ -1,24 +1,15 @@
 const mysql = require('mysql2/promise');
-require('dotenv').config();
+const bcrypt = require('bcrypt');
 
-// Origen: Clever Cloud (usa las variables de entorno ya configuradas en Render)
-const source = mysql.createPool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-});
-
-// Destino: Railway
-const target = mysql.createPool({
+const pool = mysql.createPool({
   host: 'reseau.proxy.rlwy.net',
   port: 14310,
   user: 'root',
   password: 'OPVmNQmTZDmhEbhvfYNXXgjydDRDjRUk',
   database: 'railway',
-  ssl: { rejectUnauthorized: false },
-  connectTimeout: 30000,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
 });
 
 const dropAll = `
@@ -42,6 +33,7 @@ CREATE TABLE sucursal (
   activo TINYINT DEFAULT 1,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
 CREATE TABLE usuario (
   usuario_id INT AUTO_INCREMENT PRIMARY KEY,
   nombre VARCHAR(255),
@@ -53,6 +45,7 @@ CREATE TABLE usuario (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (sucursal_id) REFERENCES sucursal(sucursal_id)
 );
+
 CREATE TABLE producto (
   producto_id INT AUTO_INCREMENT PRIMARY KEY,
   codigo_barras VARCHAR(100) UNIQUE,
@@ -63,6 +56,7 @@ CREATE TABLE producto (
   unidad VARCHAR(50) NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
 CREATE TABLE inventario (
   inventario_id INT AUTO_INCREMENT PRIMARY KEY,
   producto_id INT NOT NULL,
@@ -72,6 +66,7 @@ CREATE TABLE inventario (
   FOREIGN KEY (producto_id) REFERENCES producto(producto_id),
   FOREIGN KEY (sucursal_id) REFERENCES sucursal(sucursal_id)
 );
+
 CREATE TABLE venta (
   venta_id INT AUTO_INCREMENT PRIMARY KEY,
   total DECIMAL(10, 2),
@@ -81,6 +76,7 @@ CREATE TABLE venta (
   FOREIGN KEY (usuario_id) REFERENCES usuario(usuario_id),
   FOREIGN KEY (sucursal_id) REFERENCES sucursal(sucursal_id)
 );
+
 CREATE TABLE detalle_ventas (
   detalle_id INT AUTO_INCREMENT PRIMARY KEY,
   id_venta INT NOT NULL,
@@ -91,6 +87,7 @@ CREATE TABLE detalle_ventas (
   FOREIGN KEY (id_venta) REFERENCES venta(venta_id),
   FOREIGN KEY (id_producto) REFERENCES producto(producto_id)
 );
+
 CREATE TABLE movimientos_inventario (
   movimiento_id INT AUTO_INCREMENT PRIMARY KEY,
   tipo ENUM('entrada', 'transferencia') NOT NULL,
@@ -105,6 +102,7 @@ CREATE TABLE movimientos_inventario (
   FOREIGN KEY (sucursal_origen_id) REFERENCES sucursal(sucursal_id),
   FOREIGN KEY (sucursal_destino_id) REFERENCES sucursal(sucursal_id)
 );
+
 CREATE TABLE actividad_usuario (
   actividad_id INT AUTO_INCREMENT PRIMARY KEY,
   usuario_id INT,
@@ -117,58 +115,55 @@ CREATE TABLE actividad_usuario (
 );
 `;
 
-// Orden respeta FKs: padres antes que hijos
-const copyOrder = [
-  'sucursal',
-  'usuario',
-  'producto',
-  'inventario',
-  'venta',
-  'detalle_ventas',
-  'movimientos_inventario',
-  'actividad_usuario',
-];
-
-async function runMigration() {
-  const log = [];
-  const src = await source.getConnection();
-  const tgt = await target.getConnection();
+async function setupDatabase() {
+  const connection = await pool.getConnection();
 
   try {
-    log.push('Preparando esquema limpio en Railway...');
-    for (const stmt of dropAll.split(';').map(s => s.trim()).filter(Boolean)) {
-      await tgt.query(stmt);
+    console.log('🗑️  Eliminando tablas viejas (si existen)...');
+    const dropStatements = dropAll.split(';').map(s => s.trim()).filter(Boolean);
+    for (const statement of dropStatements) {
+      await connection.query(statement);
     }
-    for (const stmt of tables.split(';').map(s => s.trim()).filter(Boolean)) {
-      await tgt.query(stmt);
+    console.log('✅ Tablas viejas eliminadas');
+
+    console.log('🔧 Creando tablas...');
+    const tableStatements = tables.split(';').map(s => s.trim()).filter(Boolean);
+    for (const statement of tableStatements) {
+      await connection.query(statement);
     }
-    log.push('Esquema creado en Railway');
+    console.log('✅ Tablas creadas exitosamente');
 
-    await tgt.query('SET FOREIGN_KEY_CHECKS = 0');
+    console.log('🏪 Creando sucursales...');
+    await connection.query(
+      'INSERT INTO sucursal (Nombre, ubicacion) VALUES (?, ?), (?, ?)',
+      ['16 de Septiembre', 'Puebla, Puebla', 'Tlaxcalancingo', 'Puebla, Puebla']
+    );
+    console.log('✅ Sucursales creadas');
 
-    for (const table of copyOrder) {
-      const [rows] = await src.query(`SELECT * FROM ${table}`);
-      if (rows.length === 0) {
-        log.push(`${table}: 0 filas, se omite`);
-        continue;
-      }
-      const columns = Object.keys(rows[0]);
-      const placeholders = `(${columns.map(() => '?').join(',')})`;
-      const sql = `INSERT INTO ${table} (${columns.join(',')}) VALUES ${rows.map(() => placeholders).join(',')}`;
-      const values = rows.flatMap(r => columns.map(c => r[c]));
-      await tgt.query(sql, values);
-      log.push(`${table}: ${rows.length} filas migradas`);
-    }
+    console.log('👤 Creando usuario admin...');
+    const tempPassword = 'ArcoirisPos2026!';
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
-    await tgt.query('SET FOREIGN_KEY_CHECKS = 1');
-    log.push('Migración completa');
-    return log;
+    await connection.query(
+      'INSERT INTO usuario (nombre, username, password, rol, sucursal_id) VALUES (?, ?, ?, ?, ?)',
+      ['Erick Martínez', 'erick_martinez', hashedPassword, 'admin', 1]
+    );
+    console.log('✅ Usuario admin creado');
+
+    console.log('\n═══════════════════════════════════════════════════════════════');
+    console.log('✨ BASE DE DATOS DE RAILWAY LISTA');
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('Usuario: erick_martinez');
+    console.log('Contraseña temporal: ' + tempPassword);
+    console.log('═══════════════════════════════════════════════════════════════\n');
+
+  } catch (error) {
+    console.error('❌ Error:', error.message);
+    process.exit(1);
   } finally {
-    src.release();
-    tgt.release();
-    await source.end();
-    await target.end();
+    connection.release();
+    await pool.end();
   }
 }
 
-module.exports = { runMigration };
+setupDatabase();
