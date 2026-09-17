@@ -85,15 +85,19 @@ const SalesPage = () => {
     }
   };
 
-  const updateQuantity = (id, value) => {
+  // Clave única de carrito: un producto puede aparecer varias veces con distinta presentación
+  const cartKey = (item) => `${item.producto_id}-${item.presentacion_id || 'base'}`;
+
+  const updateQuantity = (key, value) => {
     setCart(cart.map(item => {
-      if (item.producto_id !== id) return item;
-      const parsed = value === "" ? "" : (item.unidad === "PZ" ? parseInt(value, 10) : parseFloat(value));
+      if (cartKey(item) !== key) return item;
+      const esEntero = item.unidad === "PZ" || item.isPresentacion;
+      const parsed = value === "" ? "" : (esEntero ? parseInt(value, 10) : parseFloat(value));
       return { ...item, qty: parsed };
     }));
   };
 
-  const removeFromCart = (id) => setCart(cart.filter(item => item.producto_id !== id));
+  const removeFromCart = (key) => setCart(cart.filter(item => cartKey(item) !== key));
 
   const total = cart.reduce((acc, item) => acc + (parseFloat(item.precio_venta) || 0) * (parseFloat(item.qty) || 0), 0);
   const cambio = pagoCon > 0 ? parseFloat(pagoCon) - total : 0;
@@ -101,7 +105,7 @@ const SalesPage = () => {
   const handleCheckout = async () => {
     if (cart.length === 0) return;
     if (cart.some(item => !item.qty || item.qty <= 0)) return mostrarError("Revisa que todas las cantidades sean mayores a 0");
-    if (cart.some(item => item.unidad === "PZ" && !Number.isInteger(item.qty))) return mostrarError("Los productos por pieza solo pueden venderse en cantidades enteras");
+    if (cart.some(item => (item.unidad === "PZ" || item.isPresentacion) && !Number.isInteger(item.qty))) return mostrarError("Esta cantidad solo puede venderse en unidades enteras");
     if (parseFloat(pagoCon) < total) return mostrarError("El monto recibido es insuficiente");
 
     const session = getSession();
@@ -146,14 +150,23 @@ const SalesPage = () => {
     }
   };
 
-  const addToCart = (product) => {
-    const existing = cart.find(item => item.producto_id === product.producto_id);
+  const addToCart = (product, presentacion = null) => {
+    const item = presentacion
+      ? {
+          producto_id: product.producto_id,
+          presentacion_id: presentacion.presentacion_id,
+          nombre: `${product.nombre} (${presentacion.nombre})`,
+          unidad: presentacion.nombre,
+          precio_venta: presentacion.precio_venta,
+          isPresentacion: true,
+        }
+      : product;
+    const key = cartKey(item);
+    const existing = cart.find(i => cartKey(i) === key);
     if (existing) {
-      setCart(cart.map(item =>
-        item.producto_id === product.producto_id ? { ...item, qty: (parseFloat(item.qty) || 0) + 1 } : item
-      ));
+      setCart(cart.map(i => cartKey(i) === key ? { ...i, qty: (parseFloat(i.qty) || 0) + 1 } : i));
     } else {
-      setCart([...cart, { ...product, qty: 1 }]);
+      setCart([...cart, { ...item, qty: 1 }]);
     }
     setQuery(""); setResults([]);
   };
@@ -246,19 +259,41 @@ const SalesPage = () => {
             {results.length > 0 && (
               <div className="absolute w-full bg-slate-800 border border-slate-700 rounded-xl mt-1 z-50 overflow-hidden shadow-2xl">
                 {results.map((p) => (
-                  <button
-                    key={p.producto_id}
-                    onClick={() => addToCart(p)}
-                    className="w-full p-4 flex justify-between items-center hover:bg-slate-700 border-b border-slate-700 last:border-0 transition-colors"
-                  >
-                    <div className="flex flex-col items-start text-left">
-                      <span className="font-bold text-white text-lg">{p.nombre}</span>
-                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${p.stock_actual <= 5 ? 'bg-red-500/20 text-red-500' : 'bg-green-500/20 text-green-500'}`}>
-                        STOCK: {p.stock_actual} {p.unidad}
-                      </span>
+                  p.presentaciones && p.presentaciones.length > 0 ? (
+                    <div key={p.producto_id} className="border-b border-slate-700 last:border-0">
+                      <div className="px-4 pt-3 pb-1">
+                        <span className="font-bold text-white text-lg">{p.nombre}</span>
+                        <span className={`ml-2 text-[10px] font-black uppercase px-2 py-0.5 rounded ${p.stock_actual <= 5 ? 'bg-red-500/20 text-red-500' : 'bg-green-500/20 text-green-500'}`}>
+                          STOCK: {p.stock_actual} {p.unidad}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-2 px-4 pb-3">
+                        {p.presentaciones.map(pres => (
+                          <button
+                            key={pres.presentacion_id}
+                            onClick={() => addToCart(p, pres)}
+                            className="bg-slate-700 hover:bg-yellow-500 hover:text-slate-900 text-white text-sm font-bold px-3 py-2 rounded-lg transition-colors"
+                          >
+                            {pres.nombre} · ${pres.precio_venta}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <span className="text-yellow-500 font-black text-xl font-mono">${p.precio_venta}</span>
-                  </button>
+                  ) : (
+                    <button
+                      key={p.producto_id}
+                      onClick={() => addToCart(p)}
+                      className="w-full p-4 flex justify-between items-center hover:bg-slate-700 border-b border-slate-700 last:border-0 transition-colors"
+                    >
+                      <div className="flex flex-col items-start text-left">
+                        <span className="font-bold text-white text-lg">{p.nombre}</span>
+                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${p.stock_actual <= 5 ? 'bg-red-500/20 text-red-500' : 'bg-green-500/20 text-green-500'}`}>
+                          STOCK: {p.stock_actual} {p.unidad}
+                        </span>
+                      </div>
+                      <span className="text-yellow-500 font-black text-xl font-mono">${p.precio_venta}</span>
+                    </button>
+                  )
                 ))}
               </div>
             )}
@@ -284,17 +319,17 @@ const SalesPage = () => {
                     </td>
                   </tr>
                 ) : cart.map((item) => (
-                  <tr key={item.producto_id} className="hover:bg-slate-700/30 transition-colors">
+                  <tr key={cartKey(item)} className="hover:bg-slate-700/30 transition-colors">
                     <td className="p-4">
                       <div className="font-semibold text-white">{item.nombre}</div>
                       <div className="text-[10px] text-slate-500 uppercase font-bold">{item.unidad}</div>
                     </td>
                     <td className="p-4">
                       <input
-                        type="number" step={item.unidad === "PZ" ? "1" : "any"}
+                        type="number" step={(item.unidad === "PZ" || item.isPresentacion) ? "1" : "any"}
                         className="w-full bg-slate-900 border border-slate-600 rounded p-2 text-yellow-500 font-black focus:border-yellow-500 outline-none text-center"
                         value={item.qty}
-                        onChange={(e) => updateQuantity(item.producto_id, e.target.value)}
+                        onChange={(e) => updateQuantity(cartKey(item), e.target.value)}
                       />
                     </td>
                     <td className="p-4 text-slate-400 font-mono">${item.precio_venta}</td>
@@ -302,7 +337,7 @@ const SalesPage = () => {
                       ${((parseFloat(item.precio_venta) || 0) * (parseFloat(item.qty) || 0)).toFixed(2)}
                     </td>
                     <td className="p-4 text-center">
-                      <button onClick={() => removeFromCart(item.producto_id)} className="text-slate-500 hover:text-red-500 transition-colors">
+                      <button onClick={() => removeFromCart(cartKey(item))} className="text-slate-500 hover:text-red-500 transition-colors">
                         <Trash2 size={18} />
                       </button>
                     </td>

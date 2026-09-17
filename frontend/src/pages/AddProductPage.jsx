@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, PlusCircle, Edit3, X, Sparkles, AlertCircle, Loader } from 'lucide-react';
+import { Search, PlusCircle, Edit3, X, Sparkles, AlertCircle, Loader, Layers, Trash2 } from 'lucide-react';
 import api from '../api';
 
 const FORM_VACIO = {
@@ -23,6 +23,8 @@ const AddProductPage = () => {
     const [mensaje, setMensaje] = useState({ texto: '', tipo: '' });
     const [sugerencia, setSugerencia] = useState(null); // { nombre, descripcion } | 'not_found' | 'loading'
     const barcodeTimer = useRef(null);
+    const [presentaciones, setPresentaciones] = useState([]);
+    const [nuevaPres, setNuevaPres] = useState({ nombre: '', cantidad: '', precio_venta: '' });
 
     useEffect(() => {
         cargarDatos();
@@ -49,7 +51,7 @@ const AddProductPage = () => {
         setTimeout(() => setMensaje({ texto: '', tipo: '' }), 3500);
     };
 
-    const cargarProductoEnFormulario = (p) => {
+    const cargarProductoEnFormulario = async (p) => {
         setFormData({
             codigo_barras: p.codigo_barras || '',
             nombre: p.nombre || '',
@@ -62,6 +64,7 @@ const AddProductPage = () => {
         });
         setProductoEditandoId(p.producto_id);
         setModoEdicion(true);
+        setPresentaciones(p.presentaciones || []);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -69,6 +72,39 @@ const AddProductPage = () => {
         setModoEdicion(false);
         setProductoEditandoId(null);
         setFormData(prev => ({ ...FORM_VACIO, sucursal_id: prev.sucursal_id }));
+        setPresentaciones([]);
+        setNuevaPres({ nombre: '', cantidad: '', precio_venta: '' });
+    };
+
+    const agregarPresentacion = async () => {
+        const cant = Number(nuevaPres.cantidad);
+        const precio = Number(nuevaPres.precio_venta);
+        if (!nuevaPres.nombre || !(cant > 0) || !(precio >= 0)) {
+            return mostrarMensaje('Completa nombre, cantidad y precio de la presentación', 'error');
+        }
+        try {
+            await api.post('/presentaciones', {
+                producto_id: productoEditandoId,
+                nombre: nuevaPres.nombre,
+                cantidad: cant,
+                precio_venta: precio,
+            });
+            setNuevaPres({ nombre: '', cantidad: '', precio_venta: '' });
+            const { data } = await api.get(`/presentaciones/${productoEditandoId}`);
+            setPresentaciones(data);
+            mostrarMensaje('Presentación agregada');
+        } catch {
+            mostrarMensaje('Error al agregar la presentación', 'error');
+        }
+    };
+
+    const eliminarPresentacion = async (id) => {
+        try {
+            await api.delete(`/presentaciones/${id}`);
+            setPresentaciones(presentaciones.filter(p => p.presentacion_id !== id));
+        } catch {
+            mostrarMensaje('Error al eliminar la presentación', 'error');
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -274,6 +310,57 @@ const AddProductPage = () => {
                         {modoEdicion ? 'Guardar Cambios' : 'Registrar Producto e Inventario'}
                     </button>
                 </form>
+
+                {/* Presentaciones de venta — solo al editar un producto existente.
+                    Útil para venta a granel (ej. aceite): varias presentaciones con precio fijo
+                    comparten el mismo inventario del producto base. */}
+                {modoEdicion && (
+                    <div className="mt-6 pt-6 border-t border-slate-700">
+                        <div className="flex items-center gap-2 mb-4">
+                            <Layers size={16} className="text-yellow-500" />
+                            <span className="text-[11px] font-black text-yellow-500 uppercase tracking-widest">
+                                Presentaciones de venta (opcional)
+                            </span>
+                        </div>
+                        <p className="text-slate-500 text-xs mb-4">
+                            Para venta a granel con precio fijo por cantidad (ej. aceite: "0.5L" a $50, "1L" a $95).
+                            Todas descuentan del mismo inventario de "{formData.nombre}", medido en {formData.unidad}.
+                        </p>
+
+                        {presentaciones.length > 0 && (
+                            <div className="space-y-2 mb-4">
+                                {presentaciones.map(p => (
+                                    <div key={p.presentacion_id} className="flex items-center justify-between bg-slate-900/50 border border-slate-700 rounded-xl p-3">
+                                        <div className="text-sm">
+                                            <span className="font-bold text-white">{p.nombre}</span>
+                                            <span className="text-slate-500 ml-2">{p.cantidad} {formData.unidad} · ${Number(p.precio_venta).toFixed(2)}</span>
+                                        </div>
+                                        <button type="button" onClick={() => eliminarPresentacion(p.presentacion_id)}
+                                            className="text-slate-500 hover:text-red-500 transition-colors">
+                                            <Trash2 size={15} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-4 gap-3">
+                            <input type="text" placeholder="Nombre (ej. 0.5L)"
+                                className="col-span-2 p-3 bg-slate-900 border border-slate-700 rounded-xl text-white outline-none focus:border-yellow-500 text-sm"
+                                value={nuevaPres.nombre} onChange={e => setNuevaPres({ ...nuevaPres, nombre: e.target.value })} />
+                            <input type="number" step="0.001" placeholder={`Cant. (${formData.unidad})`}
+                                className="p-3 bg-slate-900 border border-slate-700 rounded-xl text-white outline-none focus:border-yellow-500 text-sm"
+                                value={nuevaPres.cantidad} onChange={e => setNuevaPres({ ...nuevaPres, cantidad: e.target.value })} />
+                            <input type="number" step="0.01" placeholder="Precio $"
+                                className="p-3 bg-slate-900 border border-slate-700 rounded-xl text-white outline-none focus:border-yellow-500 text-sm"
+                                value={nuevaPres.precio_venta} onChange={e => setNuevaPres({ ...nuevaPres, precio_venta: e.target.value })} />
+                        </div>
+                        <button type="button" onClick={agregarPresentacion}
+                            className="mt-3 w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-xl text-sm transition-colors">
+                            + Agregar presentación
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Lista de productos existentes */}

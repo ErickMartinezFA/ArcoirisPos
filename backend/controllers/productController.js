@@ -63,6 +63,20 @@ exports.getProducts = async (req, res) => {
             LEFT JOIN inventario i ON p.producto_id = i.producto_id AND i.sucursal_id = ?
             WHERE (p.nombre LIKE ? OR p.codigo_barras LIKE ?)
         `, [sucursal_id, `%${termino}%`, `%${termino}%`]);
+
+        if (rows.length > 0) {
+            const ids = rows.map(r => r.producto_id);
+            const [pres] = await db.query(
+                `SELECT presentacion_id, producto_id, nombre, cantidad, precio_venta FROM presentacion WHERE producto_id IN (?) ORDER BY cantidad ASC`,
+                [ids]
+            );
+            const porProducto = {};
+            for (const p of pres) {
+                (porProducto[p.producto_id] ||= []).push(p);
+            }
+            for (const r of rows) r.presentaciones = porProducto[r.producto_id] || [];
+        }
+
         res.json(rows);
     } catch (error) {
         console.error("Error en getProducts:", error.message);
