@@ -17,6 +17,8 @@ const target = mysql.createPool({
   user: 'root',
   password: 'OPVmNQmTZDmhEbhvfYNXXgjydDRDjRUk',
   database: 'railway',
+  ssl: { rejectUnauthorized: false },
+  connectTimeout: 30000,
 });
 
 const dropAll = `
