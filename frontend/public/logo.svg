@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 297 341" role="img" aria-label="El Arcoiris">
+  <g stroke-width="0.8" stroke-linejoin="round">
+    <polygon points="146,0 0,85 0,253 75,128" fill="#6c3a8c" stroke="#6c3a8c"/>
+    <polygon points="146,0 293,85 293,253 217,128" fill="#05905a" stroke="#05905a"/>
+    <polygon points="146,0 75,128 146,165 217,128" fill="#2b6fae" stroke="#2b6fae"/>
+    <polygon points="75,128 146,165 146,253 0,253" fill="#e12421" stroke="#e12421"/>
+    <polygon points="217,128 146,165 146,253 293,253" fill="#f4e600" stroke="#f4e600"/>
+    <polygon points="0,253 293,253 146,337" fill="#f28f1a" stroke="#f28f1a"/>
+  </g>
+</svg>

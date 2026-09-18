@@ -29,15 +29,6 @@ import UsersPage from "./pages/UsersPage";
 import ReportsPage from "./pages/ReportsPage";
 import TransferPage from "./pages/TransferPage";
 
-// Logo hexagonal en amarillo — coherente con el acento del tema
-const HexLogo = () => (
-  <svg width="34" height="34" viewBox="0 0 36 36" fill="none">
-    <polygon points="18,2 32,10 32,26 18,34 4,26 4,10" fill="none" stroke="#EAB308" strokeWidth="1.5" opacity="0.4"/>
-    <polygon points="18,6 28,12 28,24 18,30 8,24 8,12" fill="#EAB308" opacity="0.15"/>
-    <circle cx="18" cy="18" r="5" fill="#EAB308" opacity="0.9"/>
-  </svg>
-);
-
 const DashboardLayout = ({ children }) => {
   const location = useLocation();
   let user = null;
@@ -79,13 +70,13 @@ const DashboardLayout = ({ children }) => {
       <aside className="w-64 bg-[#1e293b] flex flex-col border-r border-slate-700/60 shrink-0 h-screen sticky top-0">
         {/* Logo */}
         <div className="px-6 py-7 flex items-center gap-3 border-b border-slate-700/60">
-          <HexLogo />
+          <img src="/logo.svg" alt="El Arcoiris" className="h-10 w-auto shrink-0" />
           <div>
             <h1 className="text-[17px] font-black italic tracking-tight text-white leading-none">
               <span className="text-yellow-400">ARCO</span>IRIS
             </h1>
             <p className="text-[9px] text-slate-500 font-bold tracking-widest uppercase mt-1">
-              Industrial POS
+              Todo para el carpintero
             </p>
           </div>
         </div>

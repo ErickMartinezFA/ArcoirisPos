@@ -55,8 +55,9 @@ function LoginPage() {
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
       <div className="bg-slate-800 p-8 rounded-2xl shadow-2xl w-full max-w-sm border-b-8 border-yellow-500">
         <div className="text-center mb-8">
+          <img src="/logo.svg" alt="El Arcoiris" className="h-20 w-auto mx-auto mb-4" />
           <h1 className="text-4xl font-black text-white tracking-tighter italic">ARCOIRIS</h1>
-          <p className="text-yellow-500 font-bold text-xs tracking-widest uppercase">Industrial POS System</p>
+          <p className="text-yellow-500 font-bold text-xs tracking-widest uppercase">Todo para el carpintero</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-5">
