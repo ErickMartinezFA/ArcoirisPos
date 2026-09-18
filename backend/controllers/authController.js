@@ -17,6 +17,9 @@ exports.login = async (req, res) => {
         if (!passwordCorrecto) {
             return res.status(401).json({ error: "Clave de acceso incorrecta" });
         }
+        if (user.activo === 0) {
+            return res.status(403).json({ error: "Este usuario está desactivado. Contacta al administrador." });
+        }
 
         const token = jwt.sign(
             { usuario_id: user.usuario_id, sucursal_id: user.sucursal_id, rol: user.rol, username: user.username },

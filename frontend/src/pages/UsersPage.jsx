@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Users, Award, TrendingUp, UserPlus, Trash2, Key, X, Eye, EyeOff, ShieldCheck, ShieldAlert } from "lucide-react";
+import { Users, Award, TrendingUp, UserPlus, Trash2, Key, X, Eye, EyeOff, ShieldCheck, ShieldAlert, UserCheck } from "lucide-react";
 import api from "../api";
 
 // Evalúa la fortaleza de la contraseña y devuelve { nivel, color, texto }
@@ -206,11 +206,27 @@ const UsersPage = () => {
 
     const handleDelete = async (id) => {
         try {
-            await api.delete(`/users/${id}`);
+            const res = await api.delete(`/users/${id}`);
             setConfirmarEliminar(null);
+            if (res.data?.desactivado) {
+                setMensajeExito(res.data.message);
+                setTimeout(() => setMensajeExito(''), 7000);
+            }
             loadUsers();
         } catch (error) {
+            setConfirmarEliminar(null);
             mostrarError(error.response?.data?.error || "Error al eliminar");
+        }
+    };
+
+    const handleReactivate = async (id) => {
+        try {
+            await api.put(`/users/${id}/reactivate`);
+            setMensajeExito('Usuario reactivado');
+            setTimeout(() => setMensajeExito(''), 4000);
+            loadUsers();
+        } catch (error) {
+            mostrarError(error.response?.data?.error || "Error al reactivar");
         }
     };
 
@@ -291,7 +307,7 @@ const UsersPage = () => {
                     </div>
                     <div>
                         <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest block mb-1">Contraseña</label>
-                        <input type="password" required
+                        <input type="password" required minLength={8} placeholder="Mínimo 8 caracteres"
                             className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white focus:border-yellow-500 outline-none"
                             value={newUser.password}
                             onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} />
@@ -339,7 +355,7 @@ const UsersPage = () => {
                     </thead>
                     <tbody className="divide-y divide-slate-700">
                         {usersInfo.map((user, index) => (
-                            <tr key={user.usuario_id} className="hover:bg-slate-700/20 transition-colors">
+                            <tr key={user.usuario_id} className={`hover:bg-slate-700/20 transition-colors ${user.activo === 0 ? 'opacity-50' : ''}`}>
                                 <td className="p-4 text-center">
                                     {index === 0 && user.numero_ventas > 0 ? <Award className="text-yellow-500 inline-block" size={24} /> :
                                      index === 1 && user.numero_ventas > 0 ? <Award className="text-slate-300 inline-block" size={24} /> :
@@ -348,7 +364,10 @@ const UsersPage = () => {
                                 </td>
                                 <td className="p-4">
                                     <div className="font-bold text-white text-lg">{user.username}</div>
-                                    <div className="text-[10px] text-slate-500 uppercase font-bold">ID: {user.usuario_id}</div>
+                                    <div className="text-[10px] text-slate-500 uppercase font-bold">
+                                        ID: {user.usuario_id}
+                                        {user.activo === 0 && <span className="ml-2 text-red-400">· DESACTIVADO</span>}
+                                    </div>
                                 </td>
                                 <td className="p-4 text-center">
                                     <span className={`px-3 py-1 rounded-full text-[10px] font-black border uppercase ${
@@ -366,6 +385,15 @@ const UsersPage = () => {
                                 </td>
                                 <td className="p-4 text-center">
                                     <div className="flex items-center justify-center gap-3">
+                                        {user.activo === 0 && (
+                                            <button
+                                                onClick={() => handleReactivate(user.usuario_id)}
+                                                className="text-slate-400 hover:text-green-500 transition-colors"
+                                                title="Reactivar Usuario"
+                                            >
+                                                <UserCheck size={18} />
+                                            </button>
+                                        )}
                                         <button
                                             onClick={() => setUsuarioAResetear(user)}
                                             className="text-slate-400 hover:text-yellow-500 transition-colors"

@@ -257,7 +257,7 @@ const AddProductPage = () => {
 
                     <div>
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Precio Compra ($)</label>
-                        <input type="number" step="0.01"
+                        <input type="number" step="0.01" min="0" required
                             className="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-white outline-none focus:border-yellow-500 mt-1"
                             value={formData.precio_compra} onChange={e => field('precio_compra', e.target.value)} />
                     </div>

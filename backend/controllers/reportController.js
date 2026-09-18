@@ -113,6 +113,7 @@ exports.getUsersSales = async (req, res) => {
                     u.usuario_id,
                     u.username,
                     u.rol,
+                    u.activo,
                     COUNT(v.venta_id) AS numero_ventas,
                     COALESCE(SUM(v.total), 0) AS total_vendido
                 FROM usuario u
@@ -126,6 +127,7 @@ exports.getUsersSales = async (req, res) => {
                     u.usuario_id,
                     u.username,
                     u.rol,
+                    u.activo,
                     COUNT(v.venta_id) AS numero_ventas,
                     COALESCE(SUM(v.total), 0) AS total_vendido
                 FROM usuario u

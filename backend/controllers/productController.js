@@ -25,6 +25,9 @@ const errorProducto = (error, res, fallback) => {
 exports.createProduct = async (req, res) => {
     if (!soloAdmin(req, res)) return;
     const { codigo_barras, nombre, precio_venta, precio_compra, unidad, descripcion, sucursal_id, stock_inicial } = req.body;
+    if (precio_compra === '' || precio_compra == null) {
+        return res.status(400).json({ error: "El precio de compra es requerido (sin él la utilidad de los reportes sale inflada)" });
+    }
     const pv = Number(precio_venta);
     const pc = Number(precio_compra);
     const si = Number(stock_inicial);
@@ -99,6 +102,9 @@ exports.updateProduct = async (req, res) => {
     if (!soloAdmin(req, res)) return;
     const { id } = req.params;
     const { codigo_barras, nombre, precio_venta, precio_compra, unidad, descripcion } = req.body;
+    if (precio_compra === '' || precio_compra == null) {
+        return res.status(400).json({ error: "El precio de compra es requerido (sin él la utilidad de los reportes sale inflada)" });
+    }
     const pv = Number(precio_venta);
     const pc = Number(precio_compra);
     if (!precioValido(pv) || !precioValido(pc)) return res.status(400).json({ error: "Precios inválidos" });

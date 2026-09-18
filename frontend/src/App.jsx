@@ -62,8 +62,8 @@ const DashboardLayout = ({ children }) => {
   const menuItems = [
     { icon: <ShoppingCart size={18} />,   label: "VENTA NUEVA",   path: "/ventas" },
     { icon: <Package size={18} />,        label: "INVENTARIO",    path: "/inventario" },
-    { icon: <ArrowRightLeft size={18} />, label: "TRANSFERENCIA", path: "/transferencia" },
     ...(esAdmin ? [
+      { icon: <ArrowRightLeft size={18} />, label: "TRANSFERENCIA", path: "/transferencia" },
       { icon: <PlusCircle size={18} />,    label: "PRODUCTOS",     path: "/nuevo-producto" },
       { icon: <Layers size={18} />,        label: "ENTRADA STOCK", path: "/entrada-stock" },
       { icon: <ClipboardList size={18} />, label: "REPORTES",      path: "/reportes" },
@@ -186,7 +186,7 @@ function App() {
         <Route path="/inventario"     element={<DashboardLayout><InventoryPage /></DashboardLayout>} />
         <Route path="/nuevo-producto" element={<DashboardLayout><AdminRoute><AddProductPage /></AdminRoute></DashboardLayout>} />
         <Route path="/entrada-stock"  element={<DashboardLayout><AdminRoute><StockEntryPage /></AdminRoute></DashboardLayout>} />
-        <Route path="/transferencia"  element={<DashboardLayout><TransferPage /></DashboardLayout>} />
+        <Route path="/transferencia"  element={<DashboardLayout><AdminRoute><TransferPage /></AdminRoute></DashboardLayout>} />
         <Route path="/reportes"       element={<DashboardLayout><AdminRoute><ReportsPage /></AdminRoute></DashboardLayout>} />
         <Route path="/usuarios"       element={<DashboardLayout><AdminRoute><UsersPage /></AdminRoute></DashboardLayout>} />
       </Routes>
