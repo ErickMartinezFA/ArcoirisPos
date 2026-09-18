@@ -1,8 +1,12 @@
+import logoTicket from './assets/logo-ticket.png?inline';
+
 // Ticket para impresora térmica de papel de 57 mm.
 // El área imprimible real de estas impresoras es ~48 mm; se centra en el papel con margin auto.
 // Si el ticket sale cortado de un lado, baja ANCHO_MM; si sobra espacio, súbelo (máx. ~54).
 const PAPEL_MM = 57;
 const ANCHO_MM = 48;
+// logo-ticket.png: hexágono en escala de grises ya tramado a 1 bit, 384 px = 48 mm a 203 dpi.
+// Se imprime sin suavizado para que cada punto sea un punto de la impresora.
 
 const escHtml = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const dinero = (n) => `$${Number(n || 0).toFixed(2)}`;
@@ -36,6 +40,7 @@ export const imprimirTicket = ({ ventaId, fecha = new Date(), operador, sucursal
     /* Sans-serif en negrita: el Courier New fino sale desvaído en papel térmico */
     body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; font-weight: 600; line-height: 1.3;
            width: ${ANCHO_MM}mm; margin: 0 auto; padding: 2mm 0 6mm; }
+    .logo { display: block; width: 100%; height: auto; image-rendering: pixelated; }
     .center { text-align: center; }
     .bold { font-weight: 800; }
     .titulo { font-size: 18px; font-weight: 900; letter-spacing: 1px; }
@@ -48,6 +53,7 @@ export const imprimirTicket = ({ ventaId, fecha = new Date(), operador, sucursal
 </head>
 <body>
   <div class="center" style="margin-bottom:6px">
+    <img class="logo" src="${logoTicket}" alt=""/>
     <div class="titulo">EL ARCOIRIS</div>
     <div>Todo para el carpintero</div>
     <div style="margin-top:4px">${escHtml(new Date(fecha).toLocaleString('es-MX'))}</div>
@@ -69,6 +75,12 @@ export const imprimirTicket = ({ ventaId, fecha = new Date(), operador, sucursal
     if (!win) return;
     win.document.write(html);
     win.document.close();
-    win.focus();
-    setTimeout(() => { win.print(); win.close(); }, 300);
+    const imprimir = () => { win.focus(); win.print(); win.close(); };
+    // Espera a que el logo cargue; si no, sale el ticket sin él.
+    const logo = win.document.images[0];
+    if (logo && !logo.complete) {
+        logo.onload = logo.onerror = () => setTimeout(imprimir, 100);
+    } else {
+        setTimeout(imprimir, 300);
+    }
 };
