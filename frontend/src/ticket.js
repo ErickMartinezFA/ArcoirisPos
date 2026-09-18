@@ -1,10 +1,14 @@
 import logoTicket from './assets/logo-ticket.png?inline';
 
 // Ticket para impresora térmica de papel de 57 mm.
-// El área imprimible real de estas impresoras es ~48 mm; se centra en el papel con margin auto.
-// Si el ticket sale cortado de un lado, baja ANCHO_MM; si sobra espacio, súbelo (máx. ~54).
+// El cabezal imprime ~48 mm (384 puntos) y el driver ubica el origen de la página en el primer
+// punto del cabezal, NO en el borde del papel: centrar el contenido en los 57 mm lo corre a la
+// derecha y se corta ese margen (~4.5 mm). Por eso el ticket va pegado a la izquierda del área
+// imprimible, con un poco de holgura. Si aún se corta a la derecha, baja ANCHO_MM;
+// si sobra espacio a la derecha, súbelo (máx. 48).
 const PAPEL_MM = 57;
-const ANCHO_MM = 48;
+const ANCHO_MM = 46;
+const MARGEN_IZQ_MM = 1;
 // logo-ticket.png: hexágono en escala de grises ya tramado a 1 bit, 384 px = 48 mm a 203 dpi.
 // Se imprime sin suavizado para que cada punto sea un punto de la impresora.
 
@@ -39,7 +43,7 @@ export const imprimirTicket = ({ ventaId, fecha = new Date(), operador, sucursal
     html, body { background: #fff; color: #000; }
     /* Sans-serif en negrita: el Courier New fino sale desvaído en papel térmico */
     body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; font-weight: 600; line-height: 1.3;
-           width: ${ANCHO_MM}mm; margin: 0 auto; padding: 2mm 0 6mm; }
+           width: ${ANCHO_MM}mm; margin: 0 0 0 ${MARGEN_IZQ_MM}mm; padding: 2mm 0 6mm; }
     .logo { display: block; width: 100%; height: auto; image-rendering: pixelated; }
     .center { text-align: center; }
     .bold { font-weight: 800; }
