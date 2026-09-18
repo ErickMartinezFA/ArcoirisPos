@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { Search, ShoppingBag, Trash2, Banknote, Printer, X } from "lucide-react";
 import api from "../api";
+import { importeLinea, fmtPrecio } from "../precio";
 
 // Abre una ventana nueva solo con el ticket y manda imprimir desde ahí.
 // Así evitamos el problema de que el CSS de impresión oculte el #root junto con el ticket.
@@ -12,7 +13,7 @@ const imprimirTicket = (ticket) => {
       <div style="font-weight:bold">${escHtml(item.nombre)}</div>
       <div style="display:flex;justify-content:space-between">
         <span>${parseFloat(item.qty)} ${escHtml(item.unidad)} × $${parseFloat(item.precio_venta).toFixed(2)}</span>
-        <span>$${((parseFloat(item.precio_venta) || 0) * (parseFloat(item.qty) || 0)).toFixed(2)}</span>
+        <span>$${importeLinea(item.precio_venta, item.qty).toFixed(2)}</span>
       </div>
     </div>
   `).join('');
@@ -99,7 +100,8 @@ const SalesPage = () => {
 
   const removeFromCart = (key) => setCart(cart.filter(item => cartKey(item) !== key));
 
-  const total = cart.reduce((acc, item) => acc + (parseFloat(item.precio_venta) || 0) * (parseFloat(item.qty) || 0), 0);
+  // Cada renglón se redondea a centavos y luego se suma: es lo mismo que calcula el servidor.
+  const total = cart.reduce((acc, item) => acc + importeLinea(item.precio_venta, item.qty), 0);
   const cambio = pagoCon > 0 ? parseFloat(pagoCon) - total : 0;
 
   const handleCheckout = async () => {
@@ -222,7 +224,7 @@ const SalesPage = () => {
                   <div key={i} className="flex justify-between">
                     <span className="truncate mr-2">{item.nombre} ×{parseFloat(item.qty)}</span>
                     <span className="shrink-0 text-white font-bold">
-                      ${((parseFloat(item.precio_venta) || 0) * (parseFloat(item.qty) || 0)).toFixed(2)}
+                      ${importeLinea(item.precio_venta, item.qty).toFixed(2)}
                     </span>
                   </div>
                 ))}
@@ -296,7 +298,7 @@ const SalesPage = () => {
                             onClick={() => addToCart(p, pres)}
                             className="bg-slate-700 hover:bg-yellow-500 hover:text-slate-900 text-white text-sm font-bold px-3 py-2 rounded-lg transition-colors"
                           >
-                            {pres.nombre} · ${pres.precio_venta}
+                            {pres.nombre} · ${fmtPrecio(pres.precio_venta)}
                           </button>
                         ))}
                       </div>
@@ -313,7 +315,7 @@ const SalesPage = () => {
                           STOCK: {p.stock_actual} {p.unidad}
                         </span>
                       </div>
-                      <span className="text-yellow-500 font-black text-xl font-mono">${p.precio_venta}</span>
+                      <span className="text-yellow-500 font-black text-xl font-mono">${fmtPrecio(p.precio_venta)}</span>
                     </button>
                   )
                 ))}
@@ -354,9 +356,9 @@ const SalesPage = () => {
                         onChange={(e) => updateQuantity(cartKey(item), e.target.value)}
                       />
                     </td>
-                    <td className="p-4 text-slate-400 font-mono">${item.precio_venta}</td>
+                    <td className="p-4 text-slate-400 font-mono">${fmtPrecio(item.precio_venta)}</td>
                     <td className="p-4 text-right font-black text-yellow-500 font-mono">
-                      ${((parseFloat(item.precio_venta) || 0) * (parseFloat(item.qty) || 0)).toFixed(2)}
+                      ${importeLinea(item.precio_venta, item.qty).toFixed(2)}
                     </td>
                     <td className="p-4 text-center">
                       <button onClick={() => removeFromCart(cartKey(item))} className="text-slate-500 hover:text-red-500 transition-colors">

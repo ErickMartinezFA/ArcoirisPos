@@ -9,7 +9,7 @@ const soloAdmin = (req, res) => {
     return true;
 };
 
-const precioValido = (v) => typeof v === 'number' && isFinite(v) && v >= 0;
+const { precioValido } = require('../utils/precio');
 
 // Un código vacío debe guardarse como NULL: la columna es UNIQUE y dos productos
 // a granel con '' chocarían entre sí.
@@ -32,7 +32,7 @@ exports.createProduct = async (req, res) => {
     const pc = Number(precio_compra);
     const si = Number(stock_inicial);
     if (!nombre || !unidad) return res.status(400).json({ error: "Nombre y unidad son requeridos" });
-    if (!precioValido(pv) || !precioValido(pc)) return res.status(400).json({ error: "Precios inválidos" });
+    if (!precioValido(pv) || !precioValido(pc)) return res.status(400).json({ error: "Precios inválidos (máximo 4 decimales)" });
     if (isNaN(si) || si < 0) return res.status(400).json({ error: "Stock inicial inválido" });
 
     try {
@@ -107,7 +107,7 @@ exports.updateProduct = async (req, res) => {
     }
     const pv = Number(precio_venta);
     const pc = Number(precio_compra);
-    if (!precioValido(pv) || !precioValido(pc)) return res.status(400).json({ error: "Precios inválidos" });
+    if (!precioValido(pv) || !precioValido(pc)) return res.status(400).json({ error: "Precios inválidos (máximo 4 decimales)" });
     try {
         const [result] = await db.query(
             "UPDATE producto SET codigo_barras = ?, nombre = ?, precio_venta = ?, precio_compra = ?, unidad = ?, descripcion = ? WHERE producto_id = ?",

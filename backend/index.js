@@ -11,6 +11,7 @@ const authRoutes = require("./routes/authRoutes");
 const reportRoutes = require("./routes/reportRoutes");
 const userRoutes = require("./routes/userRoutes");
 const logActivity = require('./utils/logActivity');
+const { redondear2 } = require('./utils/precio');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -25,7 +26,7 @@ db.query(`
         producto_id INT NOT NULL,
         nombre VARCHAR(50) NOT NULL,
         cantidad DECIMAL(10, 3) NOT NULL,
-        precio_venta DECIMAL(10, 2) NOT NULL,
+        precio_venta DECIMAL(12, 4) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (producto_id) REFERENCES producto(producto_id) ON DELETE CASCADE
     )
@@ -96,8 +97,9 @@ app.post('/api/sales', auth, async (req, res) => {
                     return res.status(400).json({ error: `Presentación no encontrada para el producto ${item.producto_id}` });
                 }
                 cantidadDescontar = Number(presRows[0].cantidad) * item.qty;
-                subtotal = Number(presRows[0].precio_venta) * item.qty;
-                precioUnitario = subtotal / cantidadDescontar;
+                const subtotalExacto = Number(presRows[0].precio_venta) * item.qty;
+                precioUnitario = subtotalExacto / cantidadDescontar;
+                subtotal = redondear2(subtotalExacto);
             } else {
                 // Precio oficial desde la DB — el cliente no puede manipularlo
                 const [prodRows] = await conn.query(
@@ -110,7 +112,7 @@ app.post('/api/sales', auth, async (req, res) => {
                 }
                 precioUnitario = Number(prodRows[0].precio_venta);
                 cantidadDescontar = item.qty;
-                subtotal = item.qty * precioUnitario;
+                subtotal = redondear2(item.qty * precioUnitario);
             }
 
             const [stockRows] = await conn.query(

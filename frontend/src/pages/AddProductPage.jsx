@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, PlusCircle, Edit3, X, Sparkles, AlertCircle, Loader, Layers, Trash2 } from 'lucide-react';
 import api from '../api';
+import { fmtPrecio } from '../precio';
 
 const FORM_VACIO = {
     codigo_barras: '',
@@ -257,14 +258,14 @@ const AddProductPage = () => {
 
                     <div>
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Precio Compra ($)</label>
-                        <input type="number" step="0.01" min="0" required
+                        <input type="number" step="0.0001" min="0" required
                             className="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-white outline-none focus:border-yellow-500 mt-1"
                             value={formData.precio_compra} onChange={e => field('precio_compra', e.target.value)} />
                     </div>
 
                     <div>
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Precio Venta ($)</label>
-                        <input type="number" step="0.01" required
+                        <input type="number" step="0.0001" min="0" required
                             className="w-full p-3 bg-slate-900 border border-slate-700 rounded-xl text-white outline-none focus:border-yellow-500 mt-1"
                             value={formData.precio_venta} onChange={e => field('precio_venta', e.target.value)} />
                     </div>
@@ -333,7 +334,7 @@ const AddProductPage = () => {
                                     <div key={p.presentacion_id} className="flex items-center justify-between bg-slate-900/50 border border-slate-700 rounded-xl p-3">
                                         <div className="text-sm">
                                             <span className="font-bold text-white">{p.nombre}</span>
-                                            <span className="text-slate-500 ml-2">{p.cantidad} {formData.unidad} · ${Number(p.precio_venta).toFixed(2)}</span>
+                                            <span className="text-slate-500 ml-2">{p.cantidad} {formData.unidad} · ${fmtPrecio(p.precio_venta)}</span>
                                         </div>
                                         <button type="button" onClick={() => eliminarPresentacion(p.presentacion_id)}
                                             className="text-slate-500 hover:text-red-500 transition-colors">
@@ -351,7 +352,7 @@ const AddProductPage = () => {
                             <input type="number" step="0.01" min="0.01" placeholder={`Cant. (${formData.unidad})`}
                                 className="p-3 bg-slate-900 border border-slate-700 rounded-xl text-white outline-none focus:border-yellow-500 text-sm"
                                 value={nuevaPres.cantidad} onChange={e => setNuevaPres({ ...nuevaPres, cantidad: e.target.value })} />
-                            <input type="number" step="0.01" placeholder="Precio $"
+                            <input type="number" step="0.0001" min="0" placeholder="Precio $"
                                 className="p-3 bg-slate-900 border border-slate-700 rounded-xl text-white outline-none focus:border-yellow-500 text-sm"
                                 value={nuevaPres.precio_venta} onChange={e => setNuevaPres({ ...nuevaPres, precio_venta: e.target.value })} />
                         </div>
@@ -400,8 +401,8 @@ const AddProductPage = () => {
                                     <td className="p-4 font-bold text-white">{p.nombre}</td>
                                     <td className="p-4 font-mono text-slate-500 text-sm">{p.codigo_barras || '—'}</td>
                                     <td className="p-4 text-center text-slate-400 text-sm font-bold">{p.unidad}</td>
-                                    <td className="p-4 text-right font-mono text-slate-400">${Number(p.precio_compra || 0).toFixed(2)}</td>
-                                    <td className="p-4 text-right font-mono font-black text-green-400">${Number(p.precio_venta).toFixed(2)}</td>
+                                    <td className="p-4 text-right font-mono text-slate-400">${fmtPrecio(p.precio_compra)}</td>
+                                    <td className="p-4 text-right font-mono font-black text-green-400">${fmtPrecio(p.precio_venta)}</td>
                                     <td className="p-4 text-center">
                                         <button
                                             onClick={() => cargarProductoEnFormulario(p)}

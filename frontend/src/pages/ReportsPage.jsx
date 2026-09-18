@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { BarChart3, Activity, DollarSign, TrendingUp, AlertTriangle, Package, Calendar, Clock, Search, X, Printer, FileDown, ShoppingBag, Percent, Receipt, CheckSquare, Square, ArrowRightLeft, Shield } from "lucide-react";
 import api from "../api";
+import { fmtPrecio } from "../precio";
 
 const ModalDetalleVenta = ({ ventaId, onClose, esAdmin }) => {
   const [detalle, setDetalle] = useState(null);
@@ -89,7 +90,7 @@ const ModalDetalleVenta = ({ ventaId, onClose, esAdmin }) => {
                       <p className="text-[10px] text-slate-500 uppercase">{item.unidad}</p>
                     </td>
                     <td className="py-3 text-center font-mono text-slate-300">{item.cantidad}</td>
-                    <td className="py-3 text-right font-mono text-slate-300">${Number(item.precio_unitario).toFixed(2)}</td>
+                    <td className="py-3 text-right font-mono text-slate-300">${fmtPrecio(item.precio_unitario)}</td>
                     <td className="py-3 text-right font-mono font-black text-green-400">${Number(item.subtotal).toFixed(2)}</td>
                     {esAdmin && <td className="py-3 text-right font-mono font-black text-yellow-400">${Number(item.utilidad_item).toFixed(2)}</td>}
                   </tr>

@@ -1,5 +1,6 @@
 const db = require('../db');
 const logActivity = require('../utils/logActivity');
+const { precioValido } = require('../utils/precio');
 
 const soloAdmin = (req, res) => {
     if (req.user.rol !== 'admin') {
@@ -28,8 +29,11 @@ exports.create = async (req, res) => {
     const { producto_id, nombre, cantidad, precio_venta } = req.body;
     const cant = Number(cantidad);
     const precio = Number(precio_venta);
-    if (!producto_id || !nombre || !(cant > 0) || !(precio >= 0)) {
+    if (!producto_id || !nombre || !(cant > 0)) {
         return res.status(400).json({ error: "Datos inválidos para la presentación" });
+    }
+    if (!precioValido(precio)) {
+        return res.status(400).json({ error: "Precio inválido (máximo 4 decimales)" });
     }
     // El inventario guarda 2 decimales; una presentación con más restaría cantidades redondeadas
     if (Math.round(cant * 100) / 100 !== cant) {
