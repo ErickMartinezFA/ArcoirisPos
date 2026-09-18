@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { BarChart3, Activity, DollarSign, TrendingUp, AlertTriangle, Package, Calendar, Clock, Search, X, Printer, FileDown, ShoppingBag, Percent, Receipt, CheckSquare, Square, ArrowRightLeft, Shield } from "lucide-react";
 import api from "../api";
 import { fmtPrecio } from "../precio";
+import { imprimirTicket } from "../ticket";
 
 const ModalDetalleVenta = ({ ventaId, onClose, esAdmin }) => {
   const [detalle, setDetalle] = useState(null);
@@ -16,35 +17,20 @@ const ModalDetalleVenta = ({ ventaId, onClose, esAdmin }) => {
 
   const imprimir = () => {
     if (!detalle) return;
-    const items = detalle.items.map(i => `
-      <div style="margin-bottom:6px">
-        <div style="font-weight:bold">${i.nombre}</div>
-        <div style="display:flex;justify-content:space-between">
-          <span>${i.cantidad} ${i.unidad} × $${Number(i.precio_unitario).toFixed(2)}</span>
-          <span>$${Number(i.subtotal).toFixed(2)}</span>
-        </div>
-      </div>
-    `).join('');
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Ticket #${detalle.venta_id}</title>
-    <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Courier New',monospace;font-size:12px;width:80mm;padding:4mm}
-    .c{text-align:center}.d{border-top:1px dashed #000;margin:6px 0}.r{display:flex;justify-content:space-between}
-    @media print{@page{size:80mm auto;margin:0}}</style></head>
-    <body>
-      <div class="c" style="margin-bottom:8px">
-        <div style="font-size:18px;font-weight:bold">EL ARCOIRIS</div>
-        <div>${new Date(detalle.fecha).toLocaleString('es-MX')}</div>
-        <div>Ticket #${detalle.venta_id} — ${detalle.vendedor}</div>
-        <div>${detalle.sucursal}</div>
-      </div>
-      <div class="d"></div>${items}<div class="d"></div>
-      <div class="r" style="font-weight:bold;font-size:15px"><span>TOTAL</span><span>$${Number(detalle.total).toFixed(2)}</span></div>
-      <div class="d"></div><div class="c">¡Gracias por su compra!</div>
-    </body></html>`;
-    const win = window.open('', '_blank', 'width=350,height=600');
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    setTimeout(() => { win.print(); win.close(); }, 300);
+    imprimirTicket({
+      ventaId: detalle.venta_id,
+      fecha: detalle.fecha,
+      operador: detalle.vendedor,
+      sucursal: detalle.sucursal,
+      items: detalle.items.map(i => ({
+        nombre: i.nombre,
+        cantidad: i.cantidad,
+        unidad: i.unidad,
+        precioUnitario: i.precio_unitario,
+        subtotal: i.subtotal,
+      })),
+      total: detalle.total,
+    });
   };
 
   return (

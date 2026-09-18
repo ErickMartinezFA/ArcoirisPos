@@ -2,65 +2,22 @@ import { useState, useRef } from "react";
 import { Search, ShoppingBag, Trash2, Banknote, Printer, X } from "lucide-react";
 import api from "../api";
 import { importeLinea, fmtPrecio } from "../precio";
+import { imprimirTicket } from "../ticket";
 
-// Abre una ventana nueva solo con el ticket y manda imprimir desde ahí.
-// Así evitamos el problema de que el CSS de impresión oculte el #root junto con el ticket.
-const escHtml = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-
-const imprimirTicket = (ticket) => {
-  const items = ticket.items.map(item => `
-    <div style="margin-bottom:6px">
-      <div style="font-weight:bold">${escHtml(item.nombre)}</div>
-      <div style="display:flex;justify-content:space-between">
-        <span>${parseFloat(item.qty)} ${escHtml(item.unidad)} × $${parseFloat(item.precio_venta).toFixed(2)}</span>
-        <span>$${importeLinea(item.precio_venta, item.qty).toFixed(2)}</span>
-      </div>
-    </div>
-  `).join('');
-
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8"/>
-      <title>Ticket #${ticket.ventaId}</title>
-      <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Courier New', monospace; font-size: 12px; width: 80mm; padding: 4mm; }
-        .center { text-align: center; }
-        .divider { border-top: 1px dashed #000; margin: 6px 0; }
-        .row { display: flex; justify-content: space-between; }
-        .bold { font-weight: bold; }
-        .big { font-size: 15px; }
-        @media print { @page { size: 80mm auto; margin: 0; } }
-      </style>
-    </head>
-    <body>
-      <div class="center" style="margin-bottom:8px">
-        <div style="font-size:18px;font-weight:bold">EL ARCOIRIS</div>
-        <div>Todo para el carpintero</div>
-        <div style="margin-top:4px">${new Date().toLocaleString('es-MX')}</div>
-        <div>Ticket #${ticket.ventaId}</div>
-        <div>Atendido por: ${ticket.operador}</div>
-      </div>
-      <div class="divider"></div>
-      ${items}
-      <div class="divider"></div>
-      <div class="row bold big"><span>TOTAL</span><span>$${ticket.total.toFixed(2)}</span></div>
-      <div class="row" style="margin-top:4px"><span>Efectivo</span><span>$${parseFloat(ticket.pagoCon).toFixed(2)}</span></div>
-      <div class="row bold"><span>Cambio</span><span>$${ticket.cambio.toFixed(2)}</span></div>
-      <div class="divider"></div>
-      <div class="center">¡Gracias por su compra!</div>
-    </body>
-    </html>
-  `;
-
-  const win = window.open('', '_blank', 'width=350,height=600');
-  win.document.write(html);
-  win.document.close();
-  win.focus();
-  setTimeout(() => { win.print(); win.close(); }, 300);
-};
+const imprimirVenta = (ticket) => imprimirTicket({
+  ventaId: ticket.ventaId,
+  operador: ticket.operador,
+  items: ticket.items.map(i => ({
+    nombre: i.nombre,
+    cantidad: i.qty,
+    unidad: i.unidad,
+    precioUnitario: i.precio_venta,
+    subtotal: importeLinea(i.precio_venta, i.qty),
+  })),
+  total: ticket.total,
+  pagoCon: ticket.pagoCon,
+  cambio: ticket.cambio,
+});
 
 const SalesPage = () => {
   const [query, setQuery] = useState("");
@@ -255,7 +212,7 @@ const SalesPage = () => {
                 Cerrar
               </button>
               <button
-                onClick={() => imprimirTicket(ticket)}
+                onClick={() => imprimirVenta(ticket)}
                 className="flex-1 bg-yellow-400 hover:bg-yellow-300 text-slate-900 font-black py-3 rounded-xl text-sm transition-all flex items-center justify-center gap-2"
               >
                 <Printer size={16} /> Imprimir
