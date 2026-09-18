@@ -16,9 +16,11 @@ const escHtml = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt
 const dinero = (n) => `$${Number(n || 0).toFixed(2)}`;
 
 // items: [{ nombre, cantidad, unidad, precioUnitario, subtotal }]
+// promociones: [{ nombre, veces, descuento }]. Con promosIncluidas=false (venta nueva) se restan del subtotal
+// de los renglones; con true (reimpresión) los subtotales ya vienen con el descuento y solo se informa el ahorro.
 // Abre una ventana solo con el ticket y manda imprimir desde ahí: así el CSS de impresión
 // de la app no oculta el ticket junto con el #root.
-export const imprimirTicket = ({ ventaId, fecha = new Date(), operador, sucursal, items, total, pagoCon, cambio }) => {
+export const imprimirTicket = ({ ventaId, fecha = new Date(), operador, sucursal, items, total, pagoCon, cambio, promociones = [], promosIncluidas = false }) => {
     const renglones = items.map(i => `
       <div class="item">
         <div class="nombre">${escHtml(i.nombre)}</div>
@@ -27,6 +29,13 @@ export const imprimirTicket = ({ ventaId, fecha = new Date(), operador, sucursal
           <span class="bold">${dinero(i.subtotal)}</span>
         </div>
       </div>`).join('');
+
+    const promos = promociones.map(p => {
+        const veces = p.veces > 1 ? ` x${p.veces}` : '';
+        return promosIncluidas
+            ? `<div class="promo">Incluye promo: ${escHtml(p.nombre)}${veces} (ahorro ${dinero(p.descuento)})</div>`
+            : `<div class="row"><span>Promo ${escHtml(p.nombre)}${veces}</span><span class="bold">-${dinero(p.descuento)}</span></div>`;
+    }).join('');
 
     const pago = pagoCon != null ? `
       <div class="row"><span>Efectivo</span><span>${dinero(pagoCon)}</span></div>
@@ -53,6 +62,7 @@ export const imprimirTicket = ({ ventaId, fecha = new Date(), operador, sucursal
     .item { margin-bottom: 6px; }
     .nombre { font-weight: 800; word-break: break-word; }
     .total { font-size: 16px; font-weight: 900; }
+    .promo { font-size: 11px; word-break: break-word; }
   </style>
 </head>
 <body>
@@ -67,6 +77,7 @@ export const imprimirTicket = ({ ventaId, fecha = new Date(), operador, sucursal
   </div>
   <div class="divider"></div>
   ${renglones}
+  ${promos ? `<div class="divider"></div>${promos}` : ''}
   <div class="divider"></div>
   <div class="row total"><span>TOTAL</span><span>${dinero(total)}</span></div>
   ${pago}

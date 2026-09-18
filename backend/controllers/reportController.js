@@ -180,7 +180,12 @@ exports.getSaleDetail = async (req, res) => {
         ]);
 
         if (!ventaRows[0]) return res.status(404).json({ error: 'Venta no encontrada' });
-        res.json({ ...ventaRows[0], items });
+        // Promociones aplicadas en esa venta (los subtotales de `items` ya vienen con el descuento repartido).
+        // Si la tabla aún no existe, el detalle debe seguir funcionando.
+        const [promociones] = await db.query(
+            "SELECT nombre, veces, descuento FROM venta_promocion WHERE venta_id = ?", [venta_id]
+        ).catch(() => [[]]);
+        res.json({ ...ventaRows[0], items, promociones });
     } catch (error) {
         console.error("Error en getSaleDetail:", error.message);
         res.status(500).json({ error: "Error al obtener detalle de venta" });

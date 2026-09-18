@@ -30,6 +30,8 @@ const ModalDetalleVenta = ({ ventaId, onClose, esAdmin }) => {
         subtotal: i.subtotal,
       })),
       total: detalle.total,
+      promociones: (detalle.promociones || []).map(p => ({ ...p, descuento: Number(p.descuento) })),
+      promosIncluidas: true,
     });
   };
 

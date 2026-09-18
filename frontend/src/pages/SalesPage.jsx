@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { Search, ShoppingBag, Trash2, Banknote, Printer, X } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Search, ShoppingBag, Trash2, Banknote, Printer, X, Tag } from "lucide-react";
 import api from "../api";
 import { importeLinea, fmtPrecio } from "../precio";
 import { imprimirTicket } from "../ticket";
@@ -17,7 +17,10 @@ const imprimirVenta = (ticket) => imprimirTicket({
   total: ticket.total,
   pagoCon: ticket.pagoCon,
   cambio: ticket.cambio,
+  promociones: ticket.descuentos,
 });
+
+const SIN_PROMO = { firma: '[]', aplicadas: [], descuento_total: 0 };
 
 const SalesPage = () => {
   const [query, setQuery] = useState("");
@@ -57,12 +60,38 @@ const SalesPage = () => {
 
   const removeFromCart = (key) => setCart(cart.filter(item => cartKey(item) !== key));
 
+  // Promociones: el servidor dice cuáles aplican al carrito (solo renglones sin presentación).
+  // Se pide con un pequeño retraso y se descartan respuestas viejas; mientras la respuesta no
+  // corresponda al carrito actual no se deja cobrar, para no mostrar un total desfasado.
+  const [promo, setPromo] = useState(SIN_PROMO);
+  const promoSeq = useRef(0);
+  const lineasPromo = cart.filter(i => !i.presentacion_id && i.qty > 0).map(i => [i.producto_id, i.qty]);
+  const firmaCarrito = JSON.stringify(lineasPromo);
+  useEffect(() => {
+    if (firmaCarrito === '[]') return;
+    const seq = ++promoSeq.current;
+    const t = setTimeout(async () => {
+      try {
+        const res = await api.post('/promotions/aplicar', { items: JSON.parse(firmaCarrito).map(([producto_id, qty]) => ({ producto_id, qty })) });
+        if (seq === promoSeq.current) setPromo({ ...res.data, firma: firmaCarrito });
+      } catch {
+        // Sin promociones si falla la consulta; el servidor las recalcula al cobrar
+        if (seq === promoSeq.current) setPromo({ ...SIN_PROMO, firma: firmaCarrito });
+      }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [firmaCarrito]);
+  const promoVigente = firmaCarrito === '[]' ? SIN_PROMO : promo;
+  const promoSincronizada = firmaCarrito === '[]' || promo.firma === firmaCarrito;
+
   // Cada renglón se redondea a centavos y luego se suma: es lo mismo que calcula el servidor.
-  const total = cart.reduce((acc, item) => acc + importeLinea(item.precio_venta, item.qty), 0);
+  const subtotal = cart.reduce((acc, item) => acc + importeLinea(item.precio_venta, item.qty), 0);
+  const descuento = promoSincronizada ? promoVigente.descuento_total : 0;
+  const total = Math.round((subtotal - descuento) * 100) / 100;
   const cambio = pagoCon > 0 ? parseFloat(pagoCon) - total : 0;
 
   const handleCheckout = async () => {
-    if (cart.length === 0) return;
+    if (cart.length === 0 || !promoSincronizada) return;
     if (cart.some(item => !item.qty || item.qty <= 0)) return mostrarError("Revisa que todas las cantidades sean mayores a 0");
     if (cart.some(item => (item.unidad === "PZ" || item.isPresentacion) && !Number.isInteger(item.qty))) return mostrarError("Esta cantidad solo puede venderse en unidades enteras");
     if (parseFloat(pagoCon) < total) return mostrarError("El monto recibido es insuficiente");
@@ -73,12 +102,15 @@ const SalesPage = () => {
       const response = await api.post('/sales', { items: cart, total, sucursal_id: session.sucursal_id });
 
       if (response.data.ventaId) {
+        // El total y las promociones del ticket son los que cobró el servidor
+        const totalCobrado = Number(response.data.total);
         setTicket({
           ventaId: response.data.ventaId,
           items: [...cart],
-          total,
+          total: totalCobrado,
+          descuentos: response.data.descuentos || [],
           pagoCon,
-          cambio,
+          cambio: parseFloat(pagoCon) - totalCobrado,
           operador: session.nombre,
         });
         setCart([]);
@@ -188,6 +220,12 @@ const SalesPage = () => {
               </div>
 
               <div className="border-t border-dashed border-slate-700 pt-3 space-y-1.5">
+                {ticket.descuentos.map(a => (
+                  <div key={a.promocion_id} className="flex justify-between text-green-400 text-xs font-bold">
+                    <span className="truncate mr-2">Promo {a.nombre}{a.veces > 1 ? ` ×${a.veces}` : ''}</span>
+                    <span className="shrink-0">-${a.descuento.toFixed(2)}</span>
+                  </div>
+                ))}
                 <div className="flex justify-between text-white font-black text-base">
                   <span>TOTAL</span>
                   <span>${ticket.total.toFixed(2)}</span>
@@ -341,6 +379,22 @@ const SalesPage = () => {
               <div className="text-5xl font-black text-white font-mono tracking-tighter">
                 ${total.toFixed(2)}
               </div>
+              {promoVigente.aplicadas.length > 0 && promoSincronizada && (
+                <div className="mt-3 rounded-xl border border-green-500/40 bg-green-500/10 p-3 space-y-1.5">
+                  {promoVigente.aplicadas.map(a => (
+                    <div key={a.promocion_id} className="flex items-start justify-between gap-3 text-xs">
+                      <span className="flex items-start gap-1.5 font-bold text-green-400">
+                        <Tag size={13} className="mt-0.5 shrink-0" />
+                        <span>Promoción aplicada: {a.nombre}{a.veces > 1 ? ` ×${a.veces}` : ''}</span>
+                      </span>
+                      <span className="font-mono font-black text-green-400 shrink-0">-${a.descuento.toFixed(2)}</span>
+                    </div>
+                  ))}
+                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider pt-1 border-t border-green-500/20">
+                    Subtotal ${subtotal.toFixed(2)}
+                  </div>
+                </div>
+              )}
             </div>
 
             <hr className="border-slate-700" />
@@ -372,9 +426,9 @@ const SalesPage = () => {
 
           <button
             onClick={handleCheckout}
-            disabled={cart.length === 0 || cambio < 0 || pagoCon === ""}
+            disabled={cart.length === 0 || cambio < 0 || pagoCon === "" || !promoSincronizada}
             className={`w-full font-black py-5 rounded-xl text-xl mt-8 shadow-xl transition-all uppercase italic tracking-tighter ${
-              cart.length === 0 || cambio < 0 || pagoCon === ""
+              cart.length === 0 || cambio < 0 || pagoCon === "" || !promoSincronizada
                 ? 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-50'
                 : 'bg-green-600 hover:bg-green-500 text-white shadow-green-900/40 active:scale-95'
             }`}
