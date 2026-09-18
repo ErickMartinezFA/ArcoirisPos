@@ -6,7 +6,7 @@ exports.createUser = async (req, res) => {
     if (req.user.rol !== 'admin') {
         return res.status(403).json({ error: "Solo los administradores pueden crear usuarios" });
     }
-    const { username, password, rol } = req.body;
+    const { username, password, rol, sucursal_id } = req.body;
     if (!username || !password) {
         return res.status(400).json({ error: "Usuario y contraseña son requeridos" });
     }
@@ -14,15 +14,22 @@ exports.createUser = async (req, res) => {
         return res.status(400).json({ error: "Rol inválido" });
     }
     try {
+        const sucursalFinal = sucursal_id || req.user.sucursal_id;
+        const [[suc]] = await db.query('SELECT sucursal_id FROM sucursal WHERE sucursal_id = ?', [sucursalFinal]);
+        if (!suc) return res.status(400).json({ error: "Sucursal inválida" });
+
         const hashedPassword = await bcrypt.hash(password, 10);
         const [result] = await db.query(
-            'INSERT INTO usuario (username, password, rol) VALUES (?, ?, ?)',
-            [username, hashedPassword, rol || 'operador']
+            'INSERT INTO usuario (username, password, rol, sucursal_id) VALUES (?, ?, ?, ?)',
+            [username, hashedPassword, rol || 'operador', sucursalFinal]
         );
         await logActivity(req, 'USUARIO_CREADO', `"${username}" · Rol: ${rol}`);
         res.json({ message: 'Usuario creado', id: result.insertId });
     } catch (error) {
         console.error("Error en createUser:", error.message);
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ error: "Ese nombre de usuario ya existe" });
+        }
         res.status(500).json({ error: "Error al crear el usuario" });
     }
 };

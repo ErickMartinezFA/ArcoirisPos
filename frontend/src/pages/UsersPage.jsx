@@ -163,7 +163,8 @@ const UsersPage = () => {
     const [usersInfo, setUsersInfo] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
-    const [newUser, setNewUser] = useState({ username: "", password: "", rol: "operador" });
+    const [newUser, setNewUser] = useState({ username: "", password: "", rol: "operador", sucursal_id: "" });
+    const [sucursales, setSucursales] = useState([]);
     const [usuarioAResetear, setUsuarioAResetear] = useState(null);
     const [mensajeExito, setMensajeExito] = useState('');
     const [errorMsg, setErrorMsg] = useState('');
@@ -182,14 +183,20 @@ const UsersPage = () => {
         }
     };
 
-    useEffect(() => { loadUsers(); }, []);
+    useEffect(() => {
+        loadUsers();
+        api.get('/sucursales').then(r => {
+            setSucursales(r.data);
+            if (r.data.length > 0) setNewUser(u => ({ ...u, sucursal_id: r.data[0].sucursal_id }));
+        }).catch(() => {});
+    }, []);
 
     const handleCreateUser = async (e) => {
         e.preventDefault();
         try {
             await api.post('/users', newUser);
             setMensajeExito('Usuario creado con éxito');
-            setNewUser({ username: "", password: "", rol: "operador" });
+            setNewUser(u => ({ username: "", password: "", rol: "operador", sucursal_id: u.sucursal_id }));
             setShowForm(false);
             loadUsers();
         } catch (error) {
@@ -274,7 +281,7 @@ const UsersPage = () => {
             )}
 
             {showForm && (
-                <form onSubmit={handleCreateUser} className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-inner grid grid-cols-1 md:grid-cols-4 gap-4">
+                <form onSubmit={handleCreateUser} className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-inner grid grid-cols-1 md:grid-cols-5 gap-4">
                     <div>
                         <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest block mb-1">Usuario</label>
                         <input type="text" required
@@ -297,6 +304,17 @@ const UsersPage = () => {
                             onChange={(e) => setNewUser({ ...newUser, rol: e.target.value })}>
                             <option value="operador">Operador</option>
                             <option value="admin">Administrador</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest block mb-1">Sucursal</label>
+                        <select required
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white focus:border-yellow-500 outline-none"
+                            value={newUser.sucursal_id}
+                            onChange={(e) => setNewUser({ ...newUser, sucursal_id: e.target.value })}>
+                            {sucursales.map(s => (
+                                <option key={s.sucursal_id} value={s.sucursal_id}>{s.Nombre}</option>
+                            ))}
                         </select>
                     </div>
                     <div className="flex items-end">
