@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Search, ShoppingBag, Trash2, Banknote, Printer, X } from "lucide-react";
 import api from "../api";
 
@@ -130,23 +130,45 @@ const SalesPage = () => {
     }
   };
 
+  // Descarta respuestas viejas: si llegan desordenadas, no deben pisar la búsqueda más reciente
+  const searchSeq = useRef(0);
+
   const searchProduct = async (e) => {
     const term = e.target.value;
     setQuery(term);
     if (term.length > 2) {
+      const seq = ++searchSeq.current;
       try {
         const session = getSession();
         const res = await api.get('/products', { params: { search: term, sucursal_id: session.sucursal_id } });
-        setResults(res.data);
+        if (seq === searchSeq.current) setResults(res.data);
       } catch { /* búsqueda silenciosa */ }
     } else {
+      searchSeq.current++;
       setResults([]);
     }
   };
 
-  const handleSearchKey = (e) => {
-    if (e.key === 'Enter' && results.length === 1) {
-      addToCart(results[0]);
+  // La pistola escribe el código y manda Enter de inmediato, antes de que llegue la búsqueda
+  // por teclazo. Al presionar Enter se consulta con el texto completo, no con resultados parciales.
+  const handleSearchKey = async (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const term = query.trim();
+    if (term.length < 3) return;
+    const session = getSession();
+    if (!session) return;
+    try {
+      searchSeq.current++;
+      const res = await api.get('/products', { params: { search: term, sucursal_id: session.sucursal_id } });
+      const exacto = res.data.find(p => p.codigo_barras === term);
+      const unico = res.data.length === 1 ? res.data[0] : null;
+      const match = exacto || unico;
+      if (match) addToCart(match);
+      else if (res.data.length > 1) setResults(res.data);
+      else mostrarError(`No se encontró ningún producto con "${term}"`);
+    } catch {
+      mostrarError("No se pudo buscar el producto. Revisa tu conexión.");
     }
   };
 

@@ -13,6 +13,10 @@ const pool = mysql.createPool({
     timezone: '-06:00',
 });
 
+// El servidor MySQL corre en UTC; NOW() debe devolver hora de México para que
+// las ventas después de las 6 pm no se registren (ni reporten) en el día siguiente.
+pool.on('connection', (conn) => conn.query("SET time_zone = '-06:00'"));
+
 pool.getConnection()
     .then(conn => { conn.release(); console.log("✅ Conectado a MySQL"); })
     .catch(err => console.error("❌ Error de conexión MySQL:", err.message));

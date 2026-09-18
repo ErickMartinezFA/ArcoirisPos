@@ -11,6 +11,12 @@ function LoginPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    try {
+      if (sessionStorage.getItem('sesionExpirada')) {
+        sessionStorage.removeItem('sesionExpirada');
+        setMsg('Tu sesión expiró. Inicia sesión de nuevo.');
+      }
+    } catch { /* sin storage */ }
     api.get('/auth/sucursales')
       .then(res => setSucursales(res.data))
       .catch(() => setMsg("No se pudieron cargar las sucursales"));
@@ -37,8 +43,11 @@ function LoginPage() {
       const nombreSucursal = sucursales.find(s => s.sucursal_id == selectedSucursal)?.nombre || '';
       setMsg(`¡Acceso concedido a ${nombreSucursal}!`);
       setTimeout(() => navigate('/ventas'), 800);
-    } catch {
-      setMsg('Error: Operador o Clave incorrectos');
+    } catch (err) {
+      if (!err.response) setMsg('No se pudo conectar con el servidor. Revisa tu internet e intenta de nuevo.');
+      else if (err.response.status === 429) setMsg(err.response.data?.error || 'Demasiados intentos. Espera unos minutos.');
+      else if (err.response.status >= 500) setMsg('Error del servidor. Intenta de nuevo en un momento.');
+      else setMsg('Error: Operador o Clave incorrectos');
     }
   };
 

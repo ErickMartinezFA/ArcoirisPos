@@ -40,10 +40,11 @@ const HexLogo = () => (
 
 const DashboardLayout = ({ children }) => {
   const location = useLocation();
-  const user = JSON.parse(localStorage.getItem("user")) || { nombre: "OPERADOR" };
-  const esAdmin = user.rol === 'admin';
+  let user = null;
+  try { user = JSON.parse(localStorage.getItem("user")); } catch { /* storage corrupto */ }
+  const esAdmin = user?.rol === 'admin';
   const [sucursales, setSucursales] = useState([]);
-  const [sucursalActual, setSucursalActual] = useState(user.sucursal_id);
+  const [sucursalActual, setSucursalActual] = useState(user?.sucursal_id);
 
   useEffect(() => {
     if (esAdmin) {
@@ -69,6 +70,8 @@ const DashboardLayout = ({ children }) => {
       { icon: <Users size={18} />,         label: "USUARIOS",      path: "/usuarios" },
     ] : []),
   ];
+
+  if (!user) return <Navigate to="/" replace />;
 
   return (
     <div className="flex min-h-screen bg-[#0f172a] text-white font-sans">

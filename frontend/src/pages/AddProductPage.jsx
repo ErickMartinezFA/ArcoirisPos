@@ -93,8 +93,8 @@ const AddProductPage = () => {
             const { data } = await api.get(`/presentaciones/${productoEditandoId}`);
             setPresentaciones(data);
             mostrarMensaje('Presentación agregada');
-        } catch {
-            mostrarMensaje('Error al agregar la presentación', 'error');
+        } catch (err) {
+            mostrarMensaje(err.response?.data?.error || 'Error al agregar la presentación', 'error');
         }
     };
 
@@ -120,8 +120,8 @@ const AddProductPage = () => {
                 setFormData(prev => ({ ...FORM_VACIO, sucursal_id: prev.sucursal_id }));
             }
             cargarDatos();
-        } catch {
-            mostrarMensaje('Error al guardar el producto', 'error');
+        } catch (err) {
+            mostrarMensaje(err.response?.data?.error || 'Error al guardar el producto', 'error');
         }
     };
 
@@ -348,7 +348,7 @@ const AddProductPage = () => {
                             <input type="text" placeholder="Nombre (ej. 0.5L)"
                                 className="col-span-2 p-3 bg-slate-900 border border-slate-700 rounded-xl text-white outline-none focus:border-yellow-500 text-sm"
                                 value={nuevaPres.nombre} onChange={e => setNuevaPres({ ...nuevaPres, nombre: e.target.value })} />
-                            <input type="number" step="0.001" placeholder={`Cant. (${formData.unidad})`}
+                            <input type="number" step="0.01" min="0.01" placeholder={`Cant. (${formData.unidad})`}
                                 className="p-3 bg-slate-900 border border-slate-700 rounded-xl text-white outline-none focus:border-yellow-500 text-sm"
                                 value={nuevaPres.cantidad} onChange={e => setNuevaPres({ ...nuevaPres, cantidad: e.target.value })} />
                             <input type="number" step="0.01" placeholder="Precio $"

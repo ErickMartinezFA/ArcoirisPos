@@ -59,9 +59,15 @@ const TransferPage = () => {
         if (Number(origenId) === Number(destinoId)) {
             return setError('El origen y el destino no pueden ser la misma sucursal.');
         }
-        const qty = parseInt(cantidad, 10);
-        if (!qty || qty <= 0) {
-            return setError('La cantidad debe ser un número entero positivo.');
+        const qty = Number(cantidad);
+        if (!(qty > 0)) {
+            return setError('La cantidad debe ser mayor a 0.');
+        }
+        if (productoSeleccionado.unidad === 'PZ' && !Number.isInteger(qty)) {
+            return setError('Los productos por pieza solo se transfieren en cantidades enteras.');
+        }
+        if (stockOrigen !== null && qty > stockOrigen) {
+            return setError(`Stock insuficiente en la sucursal origen (disponible: ${stockOrigen}).`);
         }
 
         setCargando(true);
@@ -199,7 +205,8 @@ const TransferPage = () => {
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cantidad a Transferir</label>
                     <input
                         type="number"
-                        min="1"
+                        min={productoSeleccionado?.unidad === 'PZ' ? '1' : '0.01'}
+                        step={productoSeleccionado?.unidad === 'PZ' ? '1' : 'any'}
                         placeholder="0"
                         className="w-full bg-slate-900 border border-slate-700 rounded-xl py-3 px-4 text-white text-sm outline-none focus:border-yellow-500 transition-colors"
                         value={cantidad}

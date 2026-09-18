@@ -11,6 +11,17 @@ const soloAdmin = (req, res) => {
 
 const precioValido = (v) => typeof v === 'number' && isFinite(v) && v >= 0;
 
+// Un código vacío debe guardarse como NULL: la columna es UNIQUE y dos productos
+// a granel con '' chocarían entre sí.
+const normalizarCodigo = (c) => (typeof c === 'string' && c.trim() !== '') ? c.trim() : null;
+
+const errorProducto = (error, res, fallback) => {
+    if (error.code === 'ER_DUP_ENTRY') {
+        return res.status(409).json({ error: "Ya existe un producto con ese código de barras" });
+    }
+    return res.status(500).json({ error: fallback });
+};
+
 exports.createProduct = async (req, res) => {
     if (!soloAdmin(req, res)) return;
     const { codigo_barras, nombre, precio_venta, precio_compra, unidad, descripcion, sucursal_id, stock_inicial } = req.body;
@@ -27,7 +38,7 @@ exports.createProduct = async (req, res) => {
             await conn.beginTransaction();
             const [productResult] = await conn.query(
                 "INSERT INTO producto (codigo_barras, nombre, precio_venta, precio_compra, unidad, descripcion) VALUES (?, ?, ?, ?, ?, ?)",
-                [codigo_barras, nombre, pv, pc, unidad, descripcion]
+                [normalizarCodigo(codigo_barras), nombre, pv, pc, unidad, descripcion]
             );
             const newProductId = productResult.insertId;
             const [sucursales] = await conn.query("SELECT sucursal_id FROM sucursal");
@@ -49,7 +60,7 @@ exports.createProduct = async (req, res) => {
         }
     } catch (error) {
         console.error("Error en createProduct:", error.message);
-        res.status(500).json({ error: error.message });
+        errorProducto(error, res, "Error al registrar el producto");
     }
 };
 
@@ -94,14 +105,14 @@ exports.updateProduct = async (req, res) => {
     try {
         const [result] = await db.query(
             "UPDATE producto SET codigo_barras = ?, nombre = ?, precio_venta = ?, precio_compra = ?, unidad = ?, descripcion = ? WHERE producto_id = ?",
-            [codigo_barras, nombre, pv, pc, unidad, descripcion, id]
+            [normalizarCodigo(codigo_barras), nombre, pv, pc, unidad, descripcion, id]
         );
         if (result.affectedRows === 0) return res.status(404).json({ error: "Producto no encontrado" });
         await logActivity(req, 'PRODUCTO_EDITADO', `ID ${id} · "${nombre}" · PV $${pv} · PC $${pc}`);
         res.json({ message: "Producto actualizado" });
     } catch (error) {
         console.error("Error en updateProduct:", error.message);
-        res.status(500).json({ error: "Error al actualizar el producto" });
+        errorProducto(error, res, "Error al actualizar el producto");
     }
 };
 

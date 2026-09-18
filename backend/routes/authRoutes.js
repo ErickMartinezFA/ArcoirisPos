@@ -7,7 +7,8 @@ const auth = require('../middleware/authMiddleware');
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 10,
-    message: { error: 'Demasiados intentos. Espera 15 minutos.' },
+    skipSuccessfulRequests: true,
+    message: { error: 'Demasiados intentos fallidos. Espera 15 minutos.' },
     standardHeaders: true,
     legacyHeaders: false,
 });

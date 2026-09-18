@@ -9,6 +9,10 @@ const StockEntryPage = () => {
     const [productoSeleccionado, setProductoSeleccionado] = useState(null);
     const [formData, setFormData] = useState({ sucursal_id: '', cantidad: '' });
     const [mensaje, setMensaje] = useState('');
+    const [esError, setEsError] = useState(false);
+    const [guardando, setGuardando] = useState(false);
+
+    const avisar = (texto, error = false) => { setMensaje(texto); setEsError(error); };
 
     useEffect(() => {
         const loadData = async () => {
@@ -23,7 +27,7 @@ const StockEntryPage = () => {
                     setFormData(f => ({ ...f, sucursal_id: resSuc.data[0].sucursal_id }));
                 }
             } catch {
-                setMensaje('Error al cargar datos');
+                avisar('No se pudieron cargar los productos. Recarga la página.', true);
             }
         };
         loadData();
@@ -36,25 +40,38 @@ const StockEntryPage = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!productoSeleccionado || !formData.cantidad) return;
+        if (!productoSeleccionado || !formData.cantidad || guardando) return;
+        const cantidad = Number(formData.cantidad);
+        if (!(cantidad > 0)) return avisar('La cantidad debe ser mayor a 0', true);
+        if (productoSeleccionado.unidad === 'PZ' && !Number.isInteger(cantidad)) {
+            return avisar('Los productos por pieza solo admiten cantidades enteras', true);
+        }
+        setGuardando(true);
         try {
             await api.put('/inventory/add', {
                 producto_id: productoSeleccionado.producto_id,
                 sucursal_id: formData.sucursal_id,
-                cantidad: Number(formData.cantidad),
+                cantidad,
             });
-            setMensaje(`+${formData.cantidad} unidades cargadas a "${productoSeleccionado.nombre}"`);
+            const nombreSuc = sucursales.find(s => Number(s.sucursal_id) === Number(formData.sucursal_id))?.Nombre || '';
+            avisar(`+${cantidad} ${productoSeleccionado.unidad} cargadas a "${productoSeleccionado.nombre}"${nombreSuc ? ` (${nombreSuc})` : ''}`);
             setFormData(f => ({ ...f, cantidad: '' }));
             setProductoSeleccionado(null);
         } catch (err) {
-            setMensaje(err.response?.data?.error || 'Error al actualizar stock');
+            avisar(err.response?.data?.error || 'No se pudo actualizar el stock. Intenta de nuevo.', true);
+        } finally {
+            setGuardando(false);
         }
     };
 
     return (
         <div className="flex flex-col gap-6">
             {mensaje && (
-                <div className="bg-green-500/10 border border-green-500/30 text-green-400 px-4 py-3 rounded-xl text-sm font-bold">
+                <div className={`px-4 py-3 rounded-xl text-sm font-bold border ${
+                    esError
+                        ? 'bg-red-500/10 border-red-500/30 text-red-400'
+                        : 'bg-green-500/10 border-green-500/30 text-green-400'
+                }`}>
                     {mensaje}
                 </div>
             )}
@@ -98,7 +115,7 @@ const StockEntryPage = () => {
                                             <td className="p-4">{p.unidad}</td>
                                             <td className="p-4 text-center">
                                                 <button
-                                                    onClick={() => { setProductoSeleccionado(p); setMensaje(''); }}
+                                                    onClick={() => { setProductoSeleccionado(p); avisar(''); }}
                                                     className={`px-3 py-1.5 rounded-lg border transition-all ${
                                                         productoSeleccionado?.producto_id === p.producto_id
                                                             ? 'bg-green-500 border-green-500 text-slate-900'
@@ -144,7 +161,7 @@ const StockEntryPage = () => {
                                 </div>
 
                                 <div>
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block">Cantidad a Ingresar</label>
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block">Cantidad a Ingresar ({productoSeleccionado.unidad})</label>
                                     <input
                                         type="number"
                                         min={productoSeleccionado.unidad === "PZ" ? "1" : "0.01"}
@@ -157,8 +174,8 @@ const StockEntryPage = () => {
                                     />
                                 </div>
 
-                                <button type="submit" className="w-full bg-green-600 hover:bg-green-500 text-white font-black p-4 rounded-xl shadow-xl shadow-green-900/20 transition-all uppercase tracking-widest italic">
-                                    Confirmar Entrada
+                                <button type="submit" disabled={guardando} className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black p-4 rounded-xl shadow-xl shadow-green-900/20 transition-all uppercase tracking-widest italic">
+                                    {guardando ? 'Guardando...' : 'Confirmar Entrada'}
                                 </button>
                                 <button type="button" onClick={() => setProductoSeleccionado(null)} className="w-full text-slate-500 font-bold text-[10px] uppercase tracking-tighter hover:text-slate-400">
                                     Cancelar Selección

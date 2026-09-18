@@ -31,7 +31,13 @@ exports.create = async (req, res) => {
     if (!producto_id || !nombre || !(cant > 0) || !(precio >= 0)) {
         return res.status(400).json({ error: "Datos inválidos para la presentación" });
     }
+    // El inventario guarda 2 decimales; una presentación con más restaría cantidades redondeadas
+    if (Math.round(cant * 100) / 100 !== cant) {
+        return res.status(400).json({ error: "La cantidad admite máximo 2 decimales" });
+    }
     try {
+        const [[prod]] = await db.query('SELECT producto_id FROM producto WHERE producto_id = ?', [producto_id]);
+        if (!prod) return res.status(404).json({ error: "El producto no existe" });
         const [result] = await db.query(
             'INSERT INTO presentacion (producto_id, nombre, cantidad, precio_venta) VALUES (?, ?, ?, ?)',
             [producto_id, nombre, cant, precio]

@@ -16,23 +16,33 @@ exports.addStock = async (req, res) => {
     if (!producto_id || !sucursal_id || !(Number(cantidad) > 0)) {
         return res.status(400).json({ error: "Datos inválidos: cantidad debe ser mayor a 0" });
     }
+    const conn = await db.getConnection();
     try {
-        const [result] = await db.query(
-            "UPDATE inventario SET stock_actual = stock_actual + ? WHERE producto_id = ? AND sucursal_id = ?",
-            [cantidad, producto_id, sucursal_id]
+        const [[prod]] = await conn.query("SELECT producto_id FROM producto WHERE producto_id = ?", [producto_id]);
+        if (!prod) return res.status(404).json({ error: "El producto no existe" });
+        const [[suc]] = await conn.query("SELECT sucursal_id FROM sucursal WHERE sucursal_id = ?", [sucursal_id]);
+        if (!suc) return res.status(404).json({ error: "La sucursal no existe" });
+
+        await conn.beginTransaction();
+        // Si el producto aún no tiene registro en esa sucursal, se crea en vez de fallar
+        await conn.query(
+            `INSERT INTO inventario (producto_id, sucursal_id, stock_actual) VALUES (?, ?, ?)
+             ON DUPLICATE KEY UPDATE stock_actual = stock_actual + ?`,
+            [producto_id, sucursal_id, cantidad, cantidad]
         );
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ error: "No existe ese producto en la sucursal indicada" });
-        }
-        await db.query(
+        await conn.query(
             "INSERT INTO movimientos_inventario (tipo, producto_id, usuario_id, sucursal_origen_id, cantidad) VALUES ('entrada', ?, ?, ?, ?)",
             [producto_id, usuario_id, sucursal_id, cantidad]
         );
+        await conn.commit();
         await logActivity(req, 'ENTRADA_STOCK', `Producto ID ${producto_id} · +${cantidad} unidades · Sucursal ${sucursal_id}`);
         res.json({ message: "Stock actualizado" });
     } catch (error) {
+        await conn.rollback().catch(() => {});
         console.error("Error en addStock:", error.message);
         res.status(500).json({ error: "Error al actualizar stock" });
+    } finally {
+        conn.release();
     }
 };
 
@@ -53,7 +63,7 @@ exports.transferStock = async (req, res) => {
         await conn.beginTransaction();
 
         const [stockRows] = await conn.query(
-            "SELECT stock_actual FROM inventario WHERE producto_id = ? AND sucursal_id = ?",
+            "SELECT stock_actual FROM inventario WHERE producto_id = ? AND sucursal_id = ? FOR UPDATE",
             [producto_id, sucursal_origen_id]
         );
 

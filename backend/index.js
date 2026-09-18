@@ -13,6 +13,7 @@ const userRoutes = require("./routes/userRoutes");
 const logActivity = require('./utils/logActivity');
 
 const app = express();
+app.set('trust proxy', 1);
 const allowedOrigin = process.env.CORS_ORIGIN || (process.env.NODE_ENV === 'production' ? null : '*');
 if (!allowedOrigin) { console.error('CORS_ORIGIN no está configurado'); process.exit(1); }
 app.use(cors({ origin: allowedOrigin }));
@@ -113,7 +114,7 @@ app.post('/api/sales', auth, async (req, res) => {
             }
 
             const [stockRows] = await conn.query(
-                "SELECT stock_actual FROM inventario WHERE producto_id = ? AND sucursal_id = ?",
+                "SELECT stock_actual FROM inventario WHERE producto_id = ? AND sucursal_id = ? FOR UPDATE",
                 [item.producto_id, sucursal_id]
             );
             const stockDisponible = stockRows[0]?.stock_actual ?? 0;
