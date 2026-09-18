@@ -147,7 +147,7 @@ const StockEntryPage = () => {
                                     <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block">Cantidad a Ingresar</label>
                                     <input
                                         type="number"
-                                        min="0.01"
+                                        min={productoSeleccionado.unidad === "PZ" ? "1" : "0.01"}
                                         step={productoSeleccionado.unidad === "PZ" ? "1" : "any"}
                                         className="w-full p-4 bg-slate-800 border border-slate-700 rounded-xl text-white text-2xl font-black focus:border-green-500 outline-none"
                                         value={formData.cantidad}
