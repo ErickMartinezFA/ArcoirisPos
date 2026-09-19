@@ -742,6 +742,7 @@ const ReportsPage = () => {
                         LOGOUT:            'bg-slate-500/10 text-slate-400 border-slate-500/30',
                         VENTA:             'bg-blue-500/10 text-blue-400 border-blue-500/30',
                         ENTRADA_STOCK:     'bg-amber-500/10 text-amber-400 border-amber-500/30',
+                        SALIDA_STOCK:      'bg-red-500/10 text-red-400 border-red-500/30',
                         TRANSFERENCIA:     'bg-cyan-500/10 text-cyan-400 border-cyan-500/30',
                         PRODUCTO_CREADO:   'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
                         PRODUCTO_EDITADO:  'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
@@ -808,9 +809,11 @@ const ReportsPage = () => {
                           <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full border ${
                             m.tipo === 'entrada'
                               ? 'bg-green-500/10 text-green-400 border-green-500/30'
-                              : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30'
+                              : m.tipo === 'salida'
+                                ? 'bg-red-500/10 text-red-400 border-red-500/30'
+                                : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30'
                           }`}>
-                            {m.tipo === 'entrada' ? 'Entrada' : 'Transferencia'}
+                            {m.tipo === 'entrada' ? 'Entrada' : m.tipo === 'salida' ? 'Salida' : 'Transferencia'}
                           </span>
                         </td>
                         <td className="p-4 text-slate-400 font-mono text-xs">

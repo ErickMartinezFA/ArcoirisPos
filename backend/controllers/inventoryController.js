@@ -46,6 +46,55 @@ exports.addStock = async (req, res) => {
     }
 };
 
+const MOTIVOS_SALIDA = ['Corrección de captura', 'Merma o daño', 'Faltante', 'Otro'];
+
+// Descuento manual de piezas (ej. se capturó 22 y eran 18). Nunca deja el stock en negativo.
+exports.removeStock = async (req, res) => {
+    if (!soloAdmin(req, res)) return;
+    const { producto_id, sucursal_id, cantidad, motivo } = req.body;
+    const usuario_id = req.user?.usuario_id || null;
+    const cant = Number(cantidad);
+    if (!producto_id || !sucursal_id || !(cant > 0)) {
+        return res.status(400).json({ error: "Datos inválidos: cantidad debe ser mayor a 0" });
+    }
+    if (Math.round(cant * 100) / 100 !== cant) {
+        return res.status(400).json({ error: "La cantidad admite máximo 2 decimales" });
+    }
+    if (!MOTIVOS_SALIDA.includes(motivo)) {
+        return res.status(400).json({ error: "Elige el motivo del descuento" });
+    }
+    const conn = await db.getConnection();
+    try {
+        await conn.beginTransaction();
+        const [stockRows] = await conn.query(
+            "SELECT stock_actual FROM inventario WHERE producto_id = ? AND sucursal_id = ? FOR UPDATE",
+            [producto_id, sucursal_id]
+        );
+        const stockDisponible = Number(stockRows[0]?.stock_actual ?? 0);
+        if (stockDisponible < cant) {
+            await conn.rollback();
+            return res.status(400).json({ error: `Stock insuficiente en esa sucursal (disponible: ${stockDisponible})` });
+        }
+        await conn.query(
+            "UPDATE inventario SET stock_actual = stock_actual - ? WHERE producto_id = ? AND sucursal_id = ?",
+            [cant, producto_id, sucursal_id]
+        );
+        await conn.query(
+            "INSERT INTO movimientos_inventario (tipo, producto_id, usuario_id, sucursal_origen_id, cantidad) VALUES ('salida', ?, ?, ?, ?)",
+            [producto_id, usuario_id, sucursal_id, cant]
+        );
+        await conn.commit();
+        await logActivity(req, 'SALIDA_STOCK', `Producto ID ${producto_id} · -${cant} unidades · Sucursal ${sucursal_id} · Motivo: ${motivo}`);
+        res.json({ message: "Stock descontado", stock_actual: stockDisponible - cant });
+    } catch (error) {
+        await conn.rollback().catch(() => {});
+        console.error("Error en removeStock:", error.message);
+        res.status(500).json({ error: "Error al descontar stock" });
+    } finally {
+        conn.release();
+    }
+};
+
 exports.transferStock = async (req, res) => {
     if (!soloAdmin(req, res)) return;
     const { producto_id, sucursal_origen_id, sucursal_destino_id, cantidad } = req.body;

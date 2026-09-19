@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS movimientos_inventario (
     movimiento_id   INT AUTO_INCREMENT PRIMARY KEY,
-    tipo            ENUM('entrada', 'transferencia') NOT NULL,
+    tipo            ENUM('entrada', 'transferencia', 'salida') NOT NULL,  -- 'salida': descuento manual (el servidor agrega este valor solo al arrancar)
     producto_id     INT NOT NULL,
     usuario_id      INT,
     sucursal_origen_id  INT,

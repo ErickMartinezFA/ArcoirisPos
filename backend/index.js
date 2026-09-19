@@ -34,6 +34,23 @@ db.query(`
     )
 `).catch(err => console.error('Error creando tabla presentacion:', err.message));
 
+// movimientos_inventario.tipo nació como ENUM('entrada','transferencia'); el descuento manual necesita 'salida'.
+// Se conservan los valores que ya tenga la columna y solo se agrega el faltante.
+(async () => {
+    try {
+        const [[col]] = await db.query(
+            `SELECT COLUMN_TYPE AS tipo FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'movimientos_inventario' AND COLUMN_NAME = 'tipo'`
+        );
+        if (col && /^enum\(/i.test(col.tipo) && !col.tipo.includes("'salida'")) {
+            await db.query(`ALTER TABLE movimientos_inventario MODIFY tipo ${col.tipo.replace(/\)$/, ",'salida')")} NOT NULL`);
+            console.log("movimientos_inventario.tipo: se agregó 'salida'");
+        }
+    } catch (err) {
+        console.error("Error ajustando movimientos_inventario.tipo:", err.message);
+    }
+})();
+
 // Promociones tipo combo (ej. producto A + producto B a precio especial)
 (async () => {
     try {
@@ -83,6 +100,7 @@ app.put('/api/products/:id', auth, productController.updateProduct);
 app.get('/api/sucursales', auth, productController.getSucursales);
 app.get('/api/inventory/report', auth, inventoryController.getInventoryReport);
 app.put('/api/inventory/add', auth, inventoryController.addStock);
+app.put('/api/inventory/remove', auth, inventoryController.removeStock);
 app.post('/api/inventory/transfer', auth, inventoryController.transferStock);
 
 // Presentaciones de venta (ej. aceite a granel: 0.5L, 1L con precio fijo, mismo inventario)
