@@ -22,6 +22,8 @@ const imprimirVenta = (ticket) => imprimirTicket({
 
 const SIN_PROMO = { firma: '[]', aplicadas: [], descuento_total: 0 };
 
+const NOMBRE_UNIDAD = { PZ: 'Pieza', KG: 'Kilo', MT: 'Metro', LT: 'Litro' };
+
 const SalesPage = () => {
   const [query, setQuery] = useState("");
   const [cart, setCart] = useState([]);
@@ -289,6 +291,13 @@ const SalesPage = () => {
                         </span>
                       </div>
                       <div className="flex flex-wrap gap-2 px-4 pb-3">
+                        <button
+                          onClick={() => addToCart(p)}
+                          className="border-2 border-yellow-500/60 hover:bg-yellow-500 hover:text-slate-900 text-yellow-400 text-sm font-bold px-3 py-2 rounded-lg transition-colors"
+                          title="Vender por unidad base y escribir la cantidad exacta en el carrito"
+                        >
+                          {p.unidad === 'PZ' ? 'Por pieza' : `Por ${NOMBRE_UNIDAD[p.unidad] || p.unidad} (cantidad libre)`} · ${fmtPrecio(p.precio_venta)}
+                        </button>
                         {p.presentaciones.map(pres => (
                           <button
                             key={pres.presentacion_id}
