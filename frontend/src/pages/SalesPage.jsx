@@ -157,12 +157,20 @@ const SalesPage = () => {
       const res = await api.get('/products', { params: { search: term, sucursal_id: session.sucursal_id } });
       const exacto = res.data.find(p => p.codigo_barras === term);
       const unico = res.data.length === 1 ? res.data[0] : null;
-      // Código escaneado: se agrega la unidad base. Búsqueda por nombre de un producto con
-      // presentaciones: se muestran las opciones para elegir en vez de agregar solo la unidad base.
-      if (exacto) addToCart(exacto);
-      else if (unico && !(unico.presentaciones?.length > 0)) addToCart(unico);
-      else if (res.data.length > 0) setResults(res.data);
-      else mostrarError(`No se encontró ningún producto con "${term}"`);
+      // Un producto sin presentaciones se agrega directo (así funciona la pistola). Si tiene
+      // presentaciones, se muestran las opciones (incluida la unidad base) para que el cajero
+      // elija, tanto al escribir el nombre como al escanear el código.
+      const match = exacto || unico;
+      if (match && match.presentaciones?.length > 0) {
+        if (exacto) setQuery(""); // el siguiente escaneo debe empezar con el campo limpio
+        setResults([match]);
+      } else if (match) {
+        addToCart(match);
+      } else if (res.data.length > 0) {
+        setResults(res.data);
+      } else {
+        mostrarError(`No se encontró ningún producto con "${term}"`);
+      }
     } catch {
       mostrarError("No se pudo buscar el producto. Revisa tu conexión.");
     }
