@@ -154,9 +154,11 @@ const SalesPage = () => {
       const res = await api.get('/products', { params: { search: term, sucursal_id: session.sucursal_id } });
       const exacto = res.data.find(p => p.codigo_barras === term);
       const unico = res.data.length === 1 ? res.data[0] : null;
-      const match = exacto || unico;
-      if (match) addToCart(match);
-      else if (res.data.length > 1) setResults(res.data);
+      // Código escaneado: se agrega la unidad base. Búsqueda por nombre de un producto con
+      // presentaciones: se muestran las opciones para elegir en vez de agregar solo la unidad base.
+      if (exacto) addToCart(exacto);
+      else if (unico && !(unico.presentaciones?.length > 0)) addToCart(unico);
+      else if (res.data.length > 0) setResults(res.data);
       else mostrarError(`No se encontró ningún producto con "${term}"`);
     } catch {
       mostrarError("No se pudo buscar el producto. Revisa tu conexión.");
