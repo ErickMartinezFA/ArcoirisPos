@@ -56,6 +56,7 @@ const SalesPage = () => {
       if (cartKey(item) !== key) return item;
       const esEntero = item.unidad === "PZ" || item.isPresentacion;
       const parsed = value === "" ? "" : (esEntero ? parseInt(value, 10) : parseFloat(value));
+      if (parsed !== "" && !(parsed >= 0)) return item; // una cantidad negativa (flechas del campo) se ignora
       return { ...item, qty: parsed };
     }));
   };
@@ -356,7 +357,7 @@ const SalesPage = () => {
                     </td>
                     <td className="p-4">
                       <input
-                        type="number" step={(item.unidad === "PZ" || item.isPresentacion) ? "1" : "any"}
+                        type="number" min={(item.unidad === "PZ" || item.isPresentacion) ? "1" : "0.01"} step={(item.unidad === "PZ" || item.isPresentacion) ? "1" : "any"}
                         className="w-full bg-slate-900 border border-slate-600 rounded p-2 text-yellow-500 font-black focus:border-yellow-500 outline-none text-center"
                         value={item.qty}
                         onChange={(e) => updateQuantity(cartKey(item), e.target.value)}
