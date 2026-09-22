@@ -4,7 +4,7 @@
 -- MODIFY reemplaza la definición completa de la columna, así que ajusta NULL/NOT NULL/DEFAULT si difieren.
 
 ALTER TABLE producto
-  MODIFY precio_compra DECIMAL(12, 4) NULL,
+  MODIFY precio_compra DECIMAL(12, 4) NOT NULL,
   MODIFY precio_venta  DECIMAL(12, 4) NOT NULL;
 
 ALTER TABLE presentacion
