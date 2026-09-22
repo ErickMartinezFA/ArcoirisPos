@@ -1,11 +1,11 @@
 const db = require('../db');
 
-// Devuelve el primer y último día del mes actual si no se pasan fechas
+// Devuelve el primer y último día del mes actual si no se pasan fechas. Se calcula en hora de
+// México (el negocio solo opera ahí), no en la del contenedor — Railway corre en UTC.
 const defaultRange = () => {
-    const hoy = new Date();
-    const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().slice(0, 10);
-    const fin = hoy.toISOString().slice(0, 10);
-    return { inicio, fin };
+    const hoyMX = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' });
+    const [y, m] = hoyMX.split('-');
+    return { inicio: `${y}-${m}-01`, fin: hoyMX };
 };
 
 exports.getDailySales = async (req, res) => {

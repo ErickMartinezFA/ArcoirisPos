@@ -117,10 +117,28 @@ const ModalDetalleVenta = ({ ventaId, onClose, esAdmin }) => {
   );
 };
 
-const hoy = () => new Date().toISOString().slice(0, 10);
-const primerDiaMes = () => {
-  const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+// El negocio siempre opera en hora de México, sin importar el reloj/huso del dispositivo.
+// toISOString() convierte a UTC, así que de 6pm a medianoche (MX) ya "ve" el día siguiente
+// y el dashboard de "hoy" salía vacío o desfasado. Todo se calcula en base a la fecha MX en texto.
+const hoy = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' });
+const sumarDias = (fechaStr, n) => {
+  const [y, m, d] = fechaStr.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d) + n * 86400000).toISOString().slice(0, 10);
+};
+const primerDiaMes = () => { const [y, m] = hoy().split('-'); return `${y}-${m}-01`; };
+const primerDiaMesAnterior = () => {
+  let [y, m] = hoy().split('-').map(Number);
+  m -= 1; if (m === 0) { m = 12; y -= 1; }
+  return `${y}-${String(m).padStart(2, '0')}-01`;
+};
+const ultimoDiaMesAnterior = () => {
+  const [y, m] = hoy().split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, 0)).toISOString().slice(0, 10); // día 0 del mes actual = último del anterior
+};
+const inicioSemana = () => {
+  const [y, m, d] = hoy().split('-').map(Number);
+  const diaSemana = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  return sumarDias(hoy(), -diaSemana);
 };
 
 const getSession = () => {
@@ -384,9 +402,9 @@ const ReportsPage = () => {
       <div className="flex gap-2 flex-wrap">
         {[
           { label: 'Hoy', ini: hoy(), fin: hoy() },
-          { label: 'Esta semana', ini: (() => { const d = new Date(); d.setDate(d.getDate() - d.getDay()); return d.toISOString().slice(0, 10); })(), fin: hoy() },
+          { label: 'Esta semana', ini: inicioSemana(), fin: hoy() },
           { label: 'Este mes', ini: primerDiaMes(), fin: hoy() },
-          { label: 'Último mes', ini: (() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() - 1, 1).toISOString().slice(0, 10); })(), fin: (() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 0).toISOString().slice(0, 10); })() },
+          { label: 'Último mes', ini: primerDiaMesAnterior(), fin: ultimoDiaMesAnterior() },
         ].map(({ label, ini, fin }) => (
           <button
             key={label}

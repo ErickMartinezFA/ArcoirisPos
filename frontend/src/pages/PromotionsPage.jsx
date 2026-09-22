@@ -216,7 +216,7 @@ const PromotionsPage = () => {
                                 {form.items.map(i => (
                                     <div key={i.producto_id} className="flex items-center gap-2 bg-slate-900/60 border border-slate-700 rounded-xl p-2">
                                         <input
-                                            type="number" min="0.001" step={i.unidad === 'PZ' ? '1' : 'any'} required
+                                            type="number" min={i.unidad === 'PZ' ? '1' : '0.001'} step={i.unidad === 'PZ' ? '1' : 'any'} required
                                             className="w-20 p-2 bg-slate-800 border border-slate-700 rounded-lg text-yellow-500 font-black text-center outline-none focus:border-yellow-500"
                                             value={i.cantidad} onChange={e => cambiarCantidad(i.producto_id, e.target.value)}
                                         />
