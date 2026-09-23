@@ -19,17 +19,35 @@ exports.getDailySales = async (req, res) => {
     try {
         const whereExtra = esAdmin ? '' : 'AND v.sucursal_id = ?';
         const params = esAdmin ? [fechaInicio, fechaFin] : [fechaInicio, fechaFin, sucursal_id];
-        const [rows] = await db.query(`
+        const [[ventas]] = await db.query(`
             SELECT
                 COUNT(DISTINCT v.venta_id) AS total_operaciones,
-                COALESCE(SUM(v.total), 0) AS ingresos_totales,
-                COALESCE(SUM(dv.cantidad * (dv.precio_unitario - p.precio_compra)), 0) AS utilidad_neta
+                COALESCE(SUM(v.total), 0) AS ingresos_brutos,
+                COALESCE(SUM(dv.cantidad * (dv.precio_unitario - p.precio_compra)), 0) AS utilidad_bruta
             FROM venta v
             LEFT JOIN detalle_ventas dv ON v.venta_id = dv.id_venta
             LEFT JOIN producto p ON dv.id_producto = p.producto_id
             WHERE DATE(v.fecha) BETWEEN ? AND ? ${whereExtra}
         `, params);
-        res.json(rows[0]);
+
+        // Las devoluciones se descuentan en el período en que ocurrieron (no en el de la venta original).
+        const [[devs]] = await db.query(`
+            SELECT
+                COALESCE(SUM(dd.monto), 0) AS devuelto_total,
+                COALESCE(SUM(dd.monto - dd.cantidad * p.precio_compra), 0) AS utilidad_devuelta
+            FROM devolucion d
+            JOIN devolucion_detalle dd ON dd.devolucion_id = d.devolucion_id
+            JOIN producto p ON p.producto_id = dd.producto_id
+            JOIN venta v ON v.venta_id = d.venta_id
+            WHERE DATE(d.fecha) BETWEEN ? AND ? ${whereExtra}
+        `, params);
+
+        res.json({
+            total_operaciones: ventas.total_operaciones,
+            ingresos_totales: (Number(ventas.ingresos_brutos) - Number(devs.devuelto_total)).toFixed(2),
+            utilidad_neta: (Number(ventas.utilidad_bruta) - Number(devs.utilidad_devuelta)).toFixed(2),
+            devoluciones_total: Number(devs.devuelto_total).toFixed(2),
+        });
     } catch (error) {
         console.error("Error en getDailySales:", error.message);
         res.status(500).json({ error: "Error al obtener resumen de ventas" });
@@ -80,9 +98,11 @@ exports.getSalesHistory = async (req, res) => {
                 v.venta_id,
                 v.fecha,
                 v.total,
+                v.metodo_pago,
                 IFNULL(u.username, 'Desconocido') AS vendedor,
                 IFNULL(s.Nombre, 'Global') AS sucursal,
-                COALESCE(SUM(dv.cantidad * (dv.precio_unitario - p.precio_compra)), 0) AS utilidad_neta
+                COALESCE(SUM(dv.cantidad * (dv.precio_unitario - p.precio_compra)), 0) AS utilidad_neta,
+                (SELECT COALESCE(SUM(d.total), 0) FROM devolucion d WHERE d.venta_id = v.venta_id) AS devuelto
             FROM venta v
             LEFT JOIN usuario u ON v.usuario_id = u.usuario_id
             LEFT JOIN sucursal s ON v.sucursal_id = s.sucursal_id
@@ -158,6 +178,7 @@ exports.getSaleDetail = async (req, res) => {
                     v.venta_id,
                     v.fecha,
                     v.total,
+                    v.metodo_pago,
                     IFNULL(u.username, 'Desconocido') AS vendedor,
                     IFNULL(s.Nombre, 'Global') AS sucursal
                 FROM venta v
@@ -167,12 +188,14 @@ exports.getSaleDetail = async (req, res) => {
             `, ventaParams),
             db.query(`
                 SELECT
+                    dv.detalle_id,
                     p.nombre,
                     p.unidad,
                     dv.cantidad,
                     dv.precio_unitario,
                     dv.subtotal,
-                    COALESCE((dv.precio_unitario - p.precio_compra) * dv.cantidad, 0) AS utilidad_item
+                    COALESCE((dv.precio_unitario - p.precio_compra) * dv.cantidad, 0) AS utilidad_item,
+                    COALESCE((SELECT SUM(dd.cantidad) FROM devolucion_detalle dd WHERE dd.detalle_id = dv.detalle_id), 0) AS ya_devuelto
                 FROM detalle_ventas dv
                 JOIN producto p ON dv.id_producto = p.producto_id
                 WHERE dv.id_venta = ?
@@ -185,7 +208,10 @@ exports.getSaleDetail = async (req, res) => {
         const [promociones] = await db.query(
             "SELECT nombre, veces, descuento FROM venta_promocion WHERE venta_id = ?", [venta_id]
         ).catch(() => [[]]);
-        res.json({ ...ventaRows[0], items, promociones });
+        const [devoluciones] = await db.query(
+            "SELECT devolucion_id, motivo, total, fecha FROM devolucion WHERE venta_id = ? ORDER BY fecha DESC", [venta_id]
+        ).catch(() => [[]]);
+        res.json({ ...ventaRows[0], items, promociones, devoluciones });
     } catch (error) {
         console.error("Error en getSaleDetail:", error.message);
         res.status(500).json({ error: "Error al obtener detalle de venta" });

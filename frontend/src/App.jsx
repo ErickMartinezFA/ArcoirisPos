@@ -19,6 +19,7 @@ import {
   ArrowRightLeft,
   ChevronsUpDown,
   Tag,
+  RotateCcw,
 } from "lucide-react";
 import api from "./api";
 import LoginPage from "./pages/LoginPage";
@@ -30,6 +31,7 @@ import UsersPage from "./pages/UsersPage";
 import ReportsPage from "./pages/ReportsPage";
 import TransferPage from "./pages/TransferPage";
 import PromotionsPage from "./pages/PromotionsPage";
+import ReturnsPage from "./pages/ReturnsPage";
 
 const DashboardLayout = ({ children }) => {
   const location = useLocation();
@@ -60,6 +62,7 @@ const DashboardLayout = ({ children }) => {
       { icon: <PlusCircle size={18} />,    label: "PRODUCTOS",     path: "/nuevo-producto" },
       { icon: <Layers size={18} />,        label: "ENTRADA STOCK", path: "/entrada-stock" },
       { icon: <Tag size={18} />,           label: "PROMOCIONES",   path: "/promociones" },
+      { icon: <RotateCcw size={18} />,     label: "DEVOLUCIONES",  path: "/devoluciones" },
       { icon: <ClipboardList size={18} />, label: "REPORTES",      path: "/reportes" },
       { icon: <Users size={18} />,         label: "USUARIOS",      path: "/usuarios" },
     ] : []),
@@ -182,6 +185,7 @@ function App() {
         <Route path="/entrada-stock"  element={<DashboardLayout><AdminRoute><StockEntryPage /></AdminRoute></DashboardLayout>} />
         <Route path="/transferencia"  element={<DashboardLayout><AdminRoute><TransferPage /></AdminRoute></DashboardLayout>} />
         <Route path="/promociones"    element={<DashboardLayout><AdminRoute><PromotionsPage /></AdminRoute></DashboardLayout>} />
+        <Route path="/devoluciones"   element={<DashboardLayout><AdminRoute><ReturnsPage /></AdminRoute></DashboardLayout>} />
         <Route path="/reportes"       element={<DashboardLayout><AdminRoute><ReportsPage /></AdminRoute></DashboardLayout>} />
         <Route path="/usuarios"       element={<DashboardLayout><AdminRoute><UsersPage /></AdminRoute></DashboardLayout>} />
       </Routes>

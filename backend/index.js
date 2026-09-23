@@ -8,6 +8,7 @@ const productController = require('./controllers/productController');
 const inventoryController = require('./controllers/inventoryController');
 const presentacionController = require('./controllers/presentacionController');
 const promocionController = require('./controllers/promocionController');
+const devolucionController = require('./controllers/devolucionController');
 const authRoutes = require("./routes/authRoutes");
 const reportRoutes = require("./routes/reportRoutes");
 const userRoutes = require("./routes/userRoutes");
@@ -34,20 +35,79 @@ db.query(`
     )
 `).catch(err => console.error('Error creando tabla presentacion:', err.message));
 
-// movimientos_inventario.tipo nació como ENUM('entrada','transferencia'); el descuento manual necesita 'salida'.
-// Se conservan los valores que ya tenga la columna y solo se agrega el faltante.
+// movimientos_inventario.tipo nació como ENUM('entrada','transferencia'); el descuento manual y las
+// devoluciones necesitan 'salida' y 'devolucion'. Se conservan los valores existentes y solo se agrega lo faltante.
 (async () => {
     try {
         const [[col]] = await db.query(
             `SELECT COLUMN_TYPE AS tipo FROM information_schema.COLUMNS
              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'movimientos_inventario' AND COLUMN_NAME = 'tipo'`
         );
-        if (col && /^enum\(/i.test(col.tipo) && !col.tipo.includes("'salida'")) {
-            await db.query(`ALTER TABLE movimientos_inventario MODIFY tipo ${col.tipo.replace(/\)$/, ",'salida')")} NOT NULL`);
-            console.log("movimientos_inventario.tipo: se agregó 'salida'");
+        if (col && /^enum\(/i.test(col.tipo)) {
+            let tipo = col.tipo;
+            for (const valor of ['salida', 'devolucion']) {
+                if (!tipo.includes(`'${valor}'`)) tipo = tipo.replace(/\)$/, `,'${valor}')`);
+            }
+            if (tipo !== col.tipo) {
+                await db.query(`ALTER TABLE movimientos_inventario MODIFY tipo ${tipo} NOT NULL`);
+                console.log("movimientos_inventario.tipo actualizado:", tipo);
+            }
         }
     } catch (err) {
         console.error("Error ajustando movimientos_inventario.tipo:", err.message);
+    }
+})();
+
+// Método de pago de cada venta. Se agrega la columna si no existe (ventas viejas quedan en 'efectivo').
+(async () => {
+    try {
+        const [[col]] = await db.query(
+            `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'venta' AND COLUMN_NAME = 'metodo_pago'`
+        );
+        if (!col) {
+            await db.query(
+                `ALTER TABLE venta ADD COLUMN metodo_pago ENUM('efectivo','tarjeta','transferencia') NOT NULL DEFAULT 'efectivo'`
+            );
+            console.log("venta.metodo_pago agregada");
+        }
+    } catch (err) {
+        console.error("Error agregando venta.metodo_pago:", err.message);
+    }
+})();
+
+// Devoluciones/cambios: quedan ligadas a la venta y al renglón exacto (detalle_ventas), para no
+// poder devolver más de lo que ese ticket vendió. Cada devolución regresa stock a la sucursal
+// donde se hizo la venta y queda registrada como movimiento de inventario tipo 'devolucion'.
+(async () => {
+    try {
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS devolucion (
+                devolucion_id INT AUTO_INCREMENT PRIMARY KEY,
+                venta_id INT NOT NULL,
+                usuario_id INT,
+                motivo VARCHAR(255) NOT NULL,
+                total DECIMAL(10, 2) NOT NULL,
+                fecha DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (venta_id) REFERENCES venta(venta_id),
+                FOREIGN KEY (usuario_id) REFERENCES usuario(usuario_id) ON DELETE SET NULL
+            )
+        `);
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS devolucion_detalle (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                devolucion_id INT NOT NULL,
+                detalle_id INT NOT NULL,
+                producto_id INT NOT NULL,
+                cantidad DECIMAL(10, 2) NOT NULL,
+                monto DECIMAL(10, 2) NOT NULL,
+                FOREIGN KEY (devolucion_id) REFERENCES devolucion(devolucion_id) ON DELETE CASCADE,
+                FOREIGN KEY (detalle_id) REFERENCES detalle_ventas(detalle_id),
+                FOREIGN KEY (producto_id) REFERENCES producto(producto_id)
+            )
+        `);
+    } catch (err) {
+        console.error('Error creando tablas de devolucion:', err.message);
     }
 })();
 
@@ -115,19 +175,28 @@ app.post('/api/promotions', auth, promocionController.crear);
 app.patch('/api/promotions/:id', auth, promocionController.cambiarEstado);
 app.delete('/api/promotions/:id', auth, promocionController.eliminar);
 
+// Devoluciones/cambios sobre una venta ya cobrada
+app.get('/api/devoluciones/venta/:venta_id', auth, devolucionController.getVentaParaDevolucion);
+app.post('/api/devoluciones', auth, devolucionController.crear);
+
 // Reportes y usuarios
 app.use("/api/reports", reportRoutes);
 app.use("/api/users", auth, userRoutes);
 
+const METODOS_PAGO = ['efectivo', 'tarjeta', 'transferencia'];
+
 // Ventas — usuario_id y sucursal_id se toman del JWT, nunca del body
 app.post('/api/sales', auth, async (req, res) => {
-    const { items, total, sucursal_id: sucursalBody } = req.body;
+    const { items, total, sucursal_id: sucursalBody, metodo_pago } = req.body;
     const usuario_id = req.user.usuario_id;
     // Admins pueden operar en cualquier sucursal (switcher del sidebar); vendedores usan la del JWT
     const sucursal_id = req.user.rol === 'admin' && sucursalBody ? sucursalBody : req.user.sucursal_id;
 
     if (!Array.isArray(items) || items.length === 0) {
         return res.status(400).json({ error: "La venta debe tener al menos un producto" });
+    }
+    if (!METODOS_PAGO.includes(metodo_pago)) {
+        return res.status(400).json({ error: "Método de pago inválido" });
     }
 
     const conn = await db.getConnection();
@@ -136,8 +205,8 @@ app.post('/api/sales', auth, async (req, res) => {
 
         // Total se calculará server-side una vez verificados los precios
         const [resultVenta] = await conn.query(
-            "INSERT INTO venta (total, fecha, usuario_id, sucursal_id) VALUES (?, NOW(), ?, ?)",
-            [0, usuario_id, sucursal_id]
+            "INSERT INTO venta (total, fecha, usuario_id, sucursal_id, metodo_pago) VALUES (?, NOW(), ?, ?, ?)",
+            [0, usuario_id, sucursal_id, metodo_pago]
         );
         const ventaId = resultVenta.insertId;
 

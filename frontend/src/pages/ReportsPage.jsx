@@ -30,6 +30,7 @@ const ModalDetalleVenta = ({ ventaId, onClose, esAdmin }) => {
         subtotal: i.subtotal,
       })),
       total: detalle.total,
+      metodoPago: detalle.metodo_pago,
       promociones: (detalle.promociones || []).map(p => ({ ...p, descuento: Number(p.descuento) })),
       promosIncluidas: true,
     });
@@ -45,6 +46,7 @@ const ModalDetalleVenta = ({ ventaId, onClose, esAdmin }) => {
             {detalle && (
               <p className="text-[10px] text-slate-500 mt-0.5 font-mono">
                 #{detalle.venta_id} · {new Date(detalle.fecha).toLocaleString('es-MX')} · {detalle.vendedor} · {detalle.sucursal}
+                {detalle.metodo_pago && <> · <span className="uppercase text-slate-400">{detalle.metodo_pago}</span></>}
               </p>
             )}
           </div>
@@ -75,7 +77,12 @@ const ModalDetalleVenta = ({ ventaId, onClose, esAdmin }) => {
                   <tr key={i} className="text-sm">
                     <td className="py-3">
                       <p className="font-bold text-white">{item.nombre}</p>
-                      <p className="text-[10px] text-slate-500 uppercase">{item.unidad}</p>
+                      <p className="text-[10px] text-slate-500 uppercase">
+                        {item.unidad}
+                        {Number(item.ya_devuelto) > 0 && (
+                          <span className="ml-2 text-red-400 normal-case">· {item.ya_devuelto} devuelto{item.ya_devuelto == 1 ? '' : 's'}</span>
+                        )}
+                      </p>
                     </td>
                     <td className="py-3 text-center font-mono text-slate-300">{item.cantidad}</td>
                     <td className="py-3 text-right font-mono text-slate-300">${fmtPrecio(item.precio_unitario)}</td>
@@ -97,6 +104,18 @@ const ModalDetalleVenta = ({ ventaId, onClose, esAdmin }) => {
               </tfoot>
             </table>
           )}
+
+          {detalle?.devoluciones?.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-slate-700 space-y-1.5">
+              <p className="text-[10px] font-black text-red-400 uppercase tracking-widest">Devoluciones de este ticket</p>
+              {detalle.devoluciones.map(d => (
+                <div key={d.devolucion_id} className="flex justify-between text-xs text-slate-300">
+                  <span className="truncate mr-2">{new Date(d.fecha).toLocaleDateString('es-MX')} · {d.motivo}</span>
+                  <span className="font-mono font-bold text-red-400 shrink-0">-${Number(d.total).toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -106,6 +125,12 @@ const ModalDetalleVenta = ({ ventaId, onClose, esAdmin }) => {
               className="flex-1 border border-slate-600 text-slate-400 hover:text-white hover:border-slate-500 font-bold py-3 rounded-xl text-sm transition-all">
               Cerrar
             </button>
+            {esAdmin && (
+              <button onClick={() => { window.location.hash = `/devoluciones?venta=${detalle.venta_id}`; }}
+                className="flex-1 border border-red-500/40 text-red-400 hover:bg-red-500/10 font-black py-3 rounded-xl text-sm transition-all flex items-center justify-center gap-2">
+                <ArrowRightLeft size={15} /> Devolver
+              </button>
+            )}
             <button onClick={imprimir}
               className="flex-1 bg-yellow-400 hover:bg-yellow-300 text-slate-900 font-black py-3 rounded-xl text-sm transition-all flex items-center justify-center gap-2">
               <Printer size={15} /> Reimprimir
@@ -158,7 +183,7 @@ const ReportsPage = () => {
   const esAdmin = rol === 'admin';
   const [fechaInicio, setFechaInicio] = useState(primerDiaMes());
   const [fechaFin, setFechaFin] = useState(hoy());
-  const [resumen, setResumen] = useState({ total_operaciones: 0, ingresos_totales: 0, utilidad_neta: 0 });
+  const [resumen, setResumen] = useState({ total_operaciones: 0, ingresos_totales: 0, utilidad_neta: 0, devoluciones_total: 0 });
   const [topProducts, setTopProducts] = useState([]);
   const [topUtility, setTopUtility] = useState([]);
   const [lowStock, setLowStock] = useState([]);
@@ -435,6 +460,11 @@ const ReportsPage = () => {
                 <span className="text-4xl font-black text-white font-mono tracking-tighter">
                   ${Number(resumen.ingresos_totales).toFixed(2)}
                 </span>
+                {Number(resumen.devoluciones_total) > 0 && (
+                  <span className="text-[10px] text-red-400 font-bold block mt-1">
+                    -${Number(resumen.devoluciones_total).toFixed(2)} en devoluciones (ya descontado)
+                  </span>
+                )}
               </div>
               <DollarSign size={160} className="absolute -right-6 -bottom-6 text-slate-700/20" />
             </div>
@@ -691,6 +721,7 @@ const ReportsPage = () => {
                     <th className="p-4 border-b border-slate-700">Fecha</th>
                     <th className="p-4 border-b border-slate-700">Operador</th>
                     <th className="p-4 border-b border-slate-700">Sucursal</th>
+                    <th className="p-4 border-b border-slate-700">Pago</th>
                     <th className="p-4 border-b border-slate-700 text-right">Total</th>
                     {esAdmin && <th className="p-4 border-b border-slate-700 text-right">Utilidad</th>}
                   </tr>
@@ -711,8 +742,12 @@ const ReportsPage = () => {
                       </td>
                       <td className="p-4 font-bold text-white">{venta.vendedor}</td>
                       <td className="p-4 text-xs font-bold text-slate-400 uppercase">{venta.sucursal}</td>
+                      <td className="p-4 text-xs font-bold text-slate-400 uppercase">{venta.metodo_pago || 'efectivo'}</td>
                       <td className="p-4 text-right font-mono font-black text-green-400">
                         ${Number(venta.total).toFixed(2)}
+                        {Number(venta.devuelto) > 0 && (
+                          <div className="text-[10px] text-red-400 font-bold normal-case">-${Number(venta.devuelto).toFixed(2)} devuelto</div>
+                        )}
                       </td>
                       {esAdmin && (
                         <td className="p-4 text-right font-mono font-black text-yellow-400">
@@ -723,7 +758,7 @@ const ReportsPage = () => {
                   ))}
                   {history.length === 0 && (
                     <tr>
-                      <td colSpan="6" className="p-8 text-center text-slate-500 italic text-sm">
+                      <td colSpan="7" className="p-8 text-center text-slate-500 italic text-sm">
                         No hay ventas en el período seleccionado.
                       </td>
                     </tr>

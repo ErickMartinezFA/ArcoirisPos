@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Search, ShoppingBag, Trash2, Banknote, Printer, X, Tag } from "lucide-react";
+import { Search, ShoppingBag, Trash2, Banknote, Printer, X, Tag, CreditCard, Landmark } from "lucide-react";
 import api from "../api";
 import { importeLinea, fmtPrecio } from "../precio";
 import { imprimirTicket } from "../ticket";
@@ -15,8 +15,9 @@ const imprimirVenta = (ticket) => imprimirTicket({
     subtotal: importeLinea(i.precio_venta, i.qty),
   })),
   total: ticket.total,
-  pagoCon: ticket.pagoCon,
+  pagoCon: ticket.metodoPago === 'efectivo' ? ticket.pagoCon : null,
   cambio: ticket.cambio,
+  metodoPago: ticket.metodoPago,
   promociones: ticket.descuentos,
 });
 
@@ -24,11 +25,18 @@ const SIN_PROMO = { firma: '[]', aplicadas: [], descuento_total: 0 };
 
 const NOMBRE_UNIDAD = { PZ: 'Pieza', KG: 'Kilo', MT: 'Metro', LT: 'Litro' };
 
+const METODOS_PAGO = [
+  { valor: 'efectivo', label: 'Efectivo', Icono: Banknote },
+  { valor: 'tarjeta', label: 'Tarjeta', Icono: CreditCard },
+  { valor: 'transferencia', label: 'Transferencia', Icono: Landmark },
+];
+
 const SalesPage = () => {
   const [query, setQuery] = useState("");
   const [cart, setCart] = useState([]);
   const [results, setResults] = useState([]);
   const [pagoCon, setPagoCon] = useState("");
+  const [metodoPago, setMetodoPago] = useState("efectivo");
   const [ticket, setTicket] = useState(null);
   const [errorVenta, setErrorVenta] = useState("");
 
@@ -91,18 +99,19 @@ const SalesPage = () => {
   const subtotal = cart.reduce((acc, item) => acc + importeLinea(item.precio_venta, item.qty), 0);
   const descuento = promoSincronizada ? promoVigente.descuento_total : 0;
   const total = Math.round((subtotal - descuento) * 100) / 100;
-  const cambio = pagoCon > 0 ? parseFloat(pagoCon) - total : 0;
+  const esEfectivo = metodoPago === 'efectivo';
+  const cambio = esEfectivo && pagoCon > 0 ? parseFloat(pagoCon) - total : 0;
 
   const handleCheckout = async () => {
     if (cart.length === 0 || !promoSincronizada) return;
     if (cart.some(item => !item.qty || item.qty <= 0)) return mostrarError("Revisa que todas las cantidades sean mayores a 0");
     if (cart.some(item => (item.unidad === "PZ" || item.isPresentacion) && !Number.isInteger(item.qty))) return mostrarError("Esta cantidad solo puede venderse en unidades enteras");
-    if (parseFloat(pagoCon) < total) return mostrarError("El monto recibido es insuficiente");
+    if (esEfectivo && parseFloat(pagoCon) < total) return mostrarError("El monto recibido es insuficiente");
 
     const session = getSession();
     if (!session) return;
     try {
-      const response = await api.post('/sales', { items: cart, total, sucursal_id: session.sucursal_id });
+      const response = await api.post('/sales', { items: cart, total, sucursal_id: session.sucursal_id, metodo_pago: metodoPago });
 
       if (response.data.ventaId) {
         // El total y las promociones del ticket son los que cobró el servidor
@@ -112,8 +121,9 @@ const SalesPage = () => {
           items: [...cart],
           total: totalCobrado,
           descuentos: response.data.descuentos || [],
-          pagoCon,
-          cambio: parseFloat(pagoCon) - totalCobrado,
+          metodoPago,
+          pagoCon: esEfectivo ? pagoCon : totalCobrado,
+          cambio: esEfectivo ? parseFloat(pagoCon) - totalCobrado : 0,
           operador: session.nombre,
         });
         setCart([]);
@@ -243,14 +253,23 @@ const SalesPage = () => {
                   <span>TOTAL</span>
                   <span>${ticket.total.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-slate-400 text-xs">
-                  <span>Efectivo</span>
-                  <span>${parseFloat(ticket.pagoCon).toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-green-400 font-bold">
-                  <span>Cambio</span>
-                  <span>${ticket.cambio.toFixed(2)}</span>
-                </div>
+                {ticket.metodoPago === 'efectivo' ? (
+                  <>
+                    <div className="flex justify-between text-slate-400 text-xs">
+                      <span>Efectivo</span>
+                      <span>${parseFloat(ticket.pagoCon).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-green-400 font-bold">
+                      <span>Cambio</span>
+                      <span>${ticket.cambio.toFixed(2)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex justify-between text-slate-400 text-xs">
+                    <span>Método de pago</span>
+                    <span className="uppercase font-bold text-white">{ticket.metodoPago}</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -419,36 +438,59 @@ const SalesPage = () => {
 
             <hr className="border-slate-700" />
 
-            <div className="space-y-4">
-              <div>
-                <label className="flex items-center gap-2 text-[10px] text-yellow-500 font-black uppercase tracking-widest mb-2">
-                  <Banknote size={14} /> Efectivo Recibido
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xl font-bold pointer-events-none">$</span>
-                  <input
-                    type="number" placeholder="0.00"
-                    className="w-full bg-slate-900 border-2 border-slate-700 rounded-xl p-3 pl-8 text-2xl font-black text-white focus:border-green-500 outline-none transition-all"
-                    value={pagoCon}
-                    onChange={(e) => setPagoCon(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className={`p-4 rounded-xl border-2 transition-all ${cambio >= 0 && pagoCon !== "" ? 'bg-green-500/10 border-green-500/50' : 'bg-slate-900/50 border-slate-800'}`}>
-                <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest block mb-1">Cambio a entregar</span>
-                <div className={`text-4xl font-black font-mono ${cambio < 0 ? 'text-red-500' : 'text-green-500'}`}>
-                  ${cambio.toFixed(2)}
-                </div>
+            <div>
+              <label className="text-[10px] text-yellow-500 font-black uppercase tracking-widest mb-2 block">Método de Pago</label>
+              <div className="grid grid-cols-3 gap-2">
+                {METODOS_PAGO.map(({ valor, label, Icono }) => (
+                  <button key={valor} type="button" onClick={() => setMetodoPago(valor)}
+                    className={`flex flex-col items-center gap-1 py-3 rounded-xl border-2 text-[10px] font-black uppercase tracking-wider transition-all ${
+                      metodoPago === valor
+                        ? 'bg-yellow-500/10 border-yellow-500 text-yellow-400'
+                        : 'border-slate-700 text-slate-500 hover:border-slate-600'
+                    }`}
+                  >
+                    <Icono size={18} /> {label}
+                  </button>
+                ))}
               </div>
             </div>
+
+            {esEfectivo ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="flex items-center gap-2 text-[10px] text-yellow-500 font-black uppercase tracking-widest mb-2">
+                    <Banknote size={14} /> Efectivo Recibido
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xl font-bold pointer-events-none">$</span>
+                    <input
+                      type="number" placeholder="0.00"
+                      className="w-full bg-slate-900 border-2 border-slate-700 rounded-xl p-3 pl-8 text-2xl font-black text-white focus:border-green-500 outline-none transition-all"
+                      value={pagoCon}
+                      onChange={(e) => setPagoCon(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className={`p-4 rounded-xl border-2 transition-all ${cambio >= 0 && pagoCon !== "" ? 'bg-green-500/10 border-green-500/50' : 'bg-slate-900/50 border-slate-800'}`}>
+                  <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest block mb-1">Cambio a entregar</span>
+                  <div className={`text-4xl font-black font-mono ${cambio < 0 ? 'text-red-500' : 'text-green-500'}`}>
+                    ${cambio.toFixed(2)}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 rounded-xl border-2 border-slate-800 bg-slate-900/50 text-center">
+                <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Se cobrará el monto exacto por {metodoPago}</span>
+              </div>
+            )}
           </div>
 
           <button
             onClick={handleCheckout}
-            disabled={cart.length === 0 || cambio < 0 || pagoCon === "" || !promoSincronizada}
+            disabled={cart.length === 0 || (esEfectivo && (cambio < 0 || pagoCon === "")) || !promoSincronizada}
             className={`w-full font-black py-5 rounded-xl text-xl mt-8 shadow-xl transition-all uppercase italic tracking-tighter ${
-              cart.length === 0 || cambio < 0 || pagoCon === "" || !promoSincronizada
+              cart.length === 0 || (esEfectivo && (cambio < 0 || pagoCon === "")) || !promoSincronizada
                 ? 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-50'
                 : 'bg-green-600 hover:bg-green-500 text-white shadow-green-900/40 active:scale-95'
             }`}
@@ -456,7 +498,7 @@ const SalesPage = () => {
             Finalizar Venta
           </button>
 
-          {pagoCon !== "" && cambio < 0 && (
+          {esEfectivo && pagoCon !== "" && cambio < 0 && (
             <p className="text-red-500 text-[10px] font-bold uppercase mt-2 text-center animate-pulse">
               Dinero insuficiente
             </p>

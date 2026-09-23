@@ -20,7 +20,7 @@ const dinero = (n) => `$${Number(n || 0).toFixed(2)}`;
 // de los renglones; con true (reimpresión) los subtotales ya vienen con el descuento y solo se informa el ahorro.
 // Abre una ventana solo con el ticket y manda imprimir desde ahí: así el CSS de impresión
 // de la app no oculta el ticket junto con el #root.
-export const imprimirTicket = ({ ventaId, fecha = new Date(), operador, sucursal, items, total, pagoCon, cambio, promociones = [], promosIncluidas = false }) => {
+export const imprimirTicket = ({ ventaId, fecha = new Date(), operador, sucursal, items, total, pagoCon, cambio, metodoPago, promociones = [], promosIncluidas = false }) => {
     const renglones = items.map(i => `
       <div class="item">
         <div class="nombre">${escHtml(i.nombre)}</div>
@@ -39,7 +39,8 @@ export const imprimirTicket = ({ ventaId, fecha = new Date(), operador, sucursal
 
     const pago = pagoCon != null ? `
       <div class="row"><span>Efectivo</span><span>${dinero(pagoCon)}</span></div>
-      <div class="row bold"><span>Cambio</span><span>${dinero(cambio)}</span></div>` : '';
+      <div class="row bold"><span>Cambio</span><span>${dinero(cambio)}</span></div>` : metodoPago ? `
+      <div class="row"><span>Método de pago</span><span class="bold">${escHtml(metodoPago.toUpperCase())}</span></div>` : '';
 
     const html = `<!DOCTYPE html>
 <html>
