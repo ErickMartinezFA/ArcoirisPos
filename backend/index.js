@@ -59,17 +59,27 @@ db.query(`
 })();
 
 // Método de pago de cada venta. Se agrega la columna si no existe (ventas viejas quedan en 'efectivo').
+// 'tarjeta' se conserva en el enum aunque ya no se ofrezca (no rompe ventas viejas que la tengan).
 (async () => {
     try {
         const [[col]] = await db.query(
-            `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+            `SELECT COLUMN_TYPE AS tipo FROM information_schema.COLUMNS
              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'venta' AND COLUMN_NAME = 'metodo_pago'`
         );
         if (!col) {
             await db.query(
-                `ALTER TABLE venta ADD COLUMN metodo_pago ENUM('efectivo','tarjeta','transferencia') NOT NULL DEFAULT 'efectivo'`
+                `ALTER TABLE venta ADD COLUMN metodo_pago ENUM('efectivo','tarjeta','tarjeta_credito','tarjeta_debito','transferencia') NOT NULL DEFAULT 'efectivo'`
             );
             console.log("venta.metodo_pago agregada");
+        } else if (/^enum\(/i.test(col.tipo)) {
+            let tipo = col.tipo;
+            for (const valor of ['tarjeta_credito', 'tarjeta_debito']) {
+                if (!tipo.includes(`'${valor}'`)) tipo = tipo.replace(/\)$/, `,'${valor}')`);
+            }
+            if (tipo !== col.tipo) {
+                await db.query(`ALTER TABLE venta MODIFY metodo_pago ${tipo} NOT NULL DEFAULT 'efectivo'`);
+                console.log("venta.metodo_pago actualizado:", tipo);
+            }
         }
     } catch (err) {
         console.error("Error agregando venta.metodo_pago:", err.message);
@@ -183,7 +193,7 @@ app.post('/api/devoluciones', auth, devolucionController.crear);
 app.use("/api/reports", reportRoutes);
 app.use("/api/users", auth, userRoutes);
 
-const METODOS_PAGO = ['efectivo', 'tarjeta', 'transferencia'];
+const METODOS_PAGO = ['efectivo', 'tarjeta_credito', 'tarjeta_debito', 'transferencia'];
 
 // Ventas — usuario_id y sucursal_id se toman del JWT, nunca del body
 app.post('/api/sales', auth, async (req, res) => {

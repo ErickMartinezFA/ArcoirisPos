@@ -7,3 +7,9 @@ export const importeLinea = (precio, qty) =>
 
 // Precio unitario para pantalla: hasta 4 decimales, sin ceros sobrantes (mínimo 2). 12.3400 -> 12.34, 12.3456 -> 12.3456
 export const fmtPrecio = (n) => Number(n || 0).toFixed(4).replace(/0{1,2}$/, '');
+
+// 'tarjeta_credito' -> 'Tarjeta Crédito'. 'tarjeta' (ventas viejas, antes de separar crédito/débito) -> 'Tarjeta'.
+export const fmtMetodoPago = (m) => {
+    const nombres = { tarjeta_credito: 'Tarjeta Crédito', tarjeta_debito: 'Tarjeta Débito' };
+    return nombres[m] || String(m || '').replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase());
+};

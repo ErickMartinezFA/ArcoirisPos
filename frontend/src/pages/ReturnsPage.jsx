@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Search, RotateCcw, AlertTriangle, CheckCircle } from 'lucide-react';
 import api from '../api';
-import { fmtPrecio } from '../precio';
+import { fmtPrecio, fmtMetodoPago } from '../precio';
 
 const ReturnsPage = () => {
     const [searchParams] = useSearchParams();
@@ -115,7 +115,7 @@ const ReturnsPage = () => {
                         <div>
                             <p className="font-black text-white">Ticket #{venta.venta_id}</p>
                             <p className="text-[10px] text-slate-500 font-mono">
-                                {new Date(venta.fecha).toLocaleString('es-MX')} · {venta.vendedor} · {venta.sucursal} · <span className="uppercase">{venta.metodo_pago}</span>
+                                {new Date(venta.fecha).toLocaleString('es-MX')} · {venta.vendedor} · {venta.sucursal} · <span className="uppercase">{fmtMetodoPago(venta.metodo_pago)}</span>
                             </p>
                         </div>
                         <p className="text-lg font-black text-green-400 font-mono">${Number(venta.total).toFixed(2)}</p>

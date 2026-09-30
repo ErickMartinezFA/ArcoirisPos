@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Search, ShoppingBag, Trash2, Banknote, Printer, X, Tag, CreditCard, Landmark } from "lucide-react";
 import api from "../api";
-import { importeLinea, fmtPrecio } from "../precio";
+import { importeLinea, fmtPrecio, fmtMetodoPago } from "../precio";
 import { imprimirTicket } from "../ticket";
 
 const imprimirVenta = (ticket) => imprimirTicket({
@@ -27,7 +27,8 @@ const NOMBRE_UNIDAD = { PZ: 'Pieza', KG: 'Kilo', MT: 'Metro', LT: 'Litro' };
 
 const METODOS_PAGO = [
   { valor: 'efectivo', label: 'Efectivo', Icono: Banknote },
-  { valor: 'tarjeta', label: 'Tarjeta', Icono: CreditCard },
+  { valor: 'tarjeta_credito', label: 'T. Crédito', Icono: CreditCard },
+  { valor: 'tarjeta_debito', label: 'T. Débito', Icono: CreditCard },
   { valor: 'transferencia', label: 'Transferencia', Icono: Landmark },
 ];
 
@@ -267,7 +268,7 @@ const SalesPage = () => {
                 ) : (
                   <div className="flex justify-between text-slate-400 text-xs">
                     <span>Método de pago</span>
-                    <span className="uppercase font-bold text-white">{ticket.metodoPago}</span>
+                    <span className="uppercase font-bold text-white">{fmtMetodoPago(ticket.metodoPago)}</span>
                   </div>
                 )}
               </div>
@@ -440,7 +441,7 @@ const SalesPage = () => {
 
             <div>
               <label className="text-[10px] text-yellow-500 font-black uppercase tracking-widest mb-2 block">Método de Pago</label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {METODOS_PAGO.map(({ valor, label, Icono }) => (
                   <button key={valor} type="button" onClick={() => setMetodoPago(valor)}
                     className={`flex flex-col items-center gap-1 py-3 rounded-xl border-2 text-[10px] font-black uppercase tracking-wider transition-all ${
@@ -481,7 +482,7 @@ const SalesPage = () => {
               </div>
             ) : (
               <div className="p-4 rounded-xl border-2 border-slate-800 bg-slate-900/50 text-center">
-                <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Se cobrará el monto exacto por {metodoPago}</span>
+                <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Se cobrará el monto exacto por {fmtMetodoPago(metodoPago)}</span>
               </div>
             )}
           </div>

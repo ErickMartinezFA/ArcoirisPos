@@ -6,6 +6,11 @@ import logoTicket from './assets/logo-ticket.png?inline';
 // derecha y se corta ese margen (~4.5 mm). Por eso el ticket va pegado a la izquierda del área
 // imprimible, con un poco de holgura. Si aún se corta a la derecha, baja ANCHO_MM;
 // si sobra espacio a la derecha, súbelo (máx. 48).
+// IMPORTANTE: por esa misma razón, `text-align: center` NO es seguro aquí — el punto medio se
+// calcula sobre ANCHO_MM, y en algunas impresoras eso empuja el texto centrado más allá del
+// borde izquierdo real del cabezal y se corta (ej. "Para el carpintero" salía "ara el carpintero").
+// Los renglones de producto, que van pegados a la izquierda, nunca se cortan — por eso todo el
+// ticket va alineado a la izquierda, incluido el encabezado.
 const PAPEL_MM = 57;
 const ANCHO_MM = 46;
 const MARGEN_IZQ_MM = 1;
@@ -37,10 +42,11 @@ export const imprimirTicket = ({ ventaId, fecha = new Date(), operador, sucursal
             : `<div class="row"><span>Promo ${escHtml(p.nombre)}${veces}</span><span class="bold">-${dinero(p.descuento)}</span></div>`;
     }).join('');
 
+    const metodoLabel = metodoPago ? metodoPago.replace(/_/g, ' ').toUpperCase() : '';
     const pago = pagoCon != null ? `
       <div class="row"><span>Efectivo</span><span>${dinero(pagoCon)}</span></div>
       <div class="row bold"><span>Cambio</span><span>${dinero(cambio)}</span></div>` : metodoPago ? `
-      <div class="row"><span>Método de pago</span><span class="bold">${escHtml(metodoPago.toUpperCase())}</span></div>` : '';
+      <div class="row"><span>Método de pago</span><span class="bold">${escHtml(metodoLabel)}</span></div>` : '';
 
     const html = `<!DOCTYPE html>
 <html>
@@ -55,7 +61,6 @@ export const imprimirTicket = ({ ventaId, fecha = new Date(), operador, sucursal
     body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; font-weight: 600; line-height: 1.3;
            width: ${ANCHO_MM}mm; margin: 0 0 0 ${MARGEN_IZQ_MM}mm; padding: 2mm 0 6mm; }
     .logo { display: block; width: 100%; height: auto; image-rendering: pixelated; }
-    .center { text-align: center; }
     .bold { font-weight: 800; }
     .titulo { font-size: 18px; font-weight: 900; letter-spacing: 1px; }
     .divider { border-top: 1.5px dashed #000; margin: 6px 0; }
@@ -64,10 +69,11 @@ export const imprimirTicket = ({ ventaId, fecha = new Date(), operador, sucursal
     .nombre { font-weight: 800; word-break: break-word; }
     .total { font-size: 16px; font-weight: 900; }
     .promo { font-size: 11px; word-break: break-word; }
+    .rb { font-size: 9px; font-weight: 500; color: #333; }
   </style>
 </head>
 <body>
-  <div class="center" style="margin-bottom:6px">
+  <div style="margin-bottom:6px">
     <img class="logo" src="${logoTicket}" alt=""/>
     <div class="titulo">EL ARCOIRIS</div>
     <div>Todo para el carpintero</div>
@@ -83,7 +89,9 @@ export const imprimirTicket = ({ ventaId, fecha = new Date(), operador, sucursal
   <div class="row total"><span>TOTAL</span><span>${dinero(total)}</span></div>
   ${pago}
   <div class="divider"></div>
-  <div class="center">¡Gracias por su compra!</div>
+  <div>¡Gracias por su compra!</div>
+  <div class="rb" style="margin-top:6px">Sistema diseñado por RB Soft</div>
+  <div class="rb">rbsoft.com.mx</div>
 </body>
 </html>`;
 

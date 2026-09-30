@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { BarChart3, Activity, DollarSign, TrendingUp, AlertTriangle, Package, Calendar, Clock, Search, X, Printer, FileDown, ShoppingBag, Percent, Receipt, CheckSquare, Square, ArrowRightLeft, Shield } from "lucide-react";
 import api from "../api";
-import { fmtPrecio } from "../precio";
+import { fmtPrecio, fmtMetodoPago } from "../precio";
 import { imprimirTicket } from "../ticket";
 
 const ModalDetalleVenta = ({ ventaId, onClose, esAdmin }) => {
@@ -46,7 +46,7 @@ const ModalDetalleVenta = ({ ventaId, onClose, esAdmin }) => {
             {detalle && (
               <p className="text-[10px] text-slate-500 mt-0.5 font-mono">
                 #{detalle.venta_id} · {new Date(detalle.fecha).toLocaleString('es-MX')} · {detalle.vendedor} · {detalle.sucursal}
-                {detalle.metodo_pago && <> · <span className="uppercase text-slate-400">{detalle.metodo_pago}</span></>}
+                {detalle.metodo_pago && <> · <span className="uppercase text-slate-400">{fmtMetodoPago(detalle.metodo_pago)}</span></>}
               </p>
             )}
           </div>
@@ -742,7 +742,7 @@ const ReportsPage = () => {
                       </td>
                       <td className="p-4 font-bold text-white">{venta.vendedor}</td>
                       <td className="p-4 text-xs font-bold text-slate-400 uppercase">{venta.sucursal}</td>
-                      <td className="p-4 text-xs font-bold text-slate-400 uppercase">{venta.metodo_pago || 'efectivo'}</td>
+                      <td className="p-4 text-xs font-bold text-slate-400 uppercase">{fmtMetodoPago(venta.metodo_pago || 'efectivo')}</td>
                       <td className="p-4 text-right font-mono font-black text-green-400">
                         ${Number(venta.total).toFixed(2)}
                         {Number(venta.devuelto) > 0 && (
