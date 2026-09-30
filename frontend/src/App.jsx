@@ -146,6 +146,13 @@ const DashboardLayout = ({ children }) => {
           >
             <LogOut size={15} /> CERRAR SESIÓN
           </button>
+
+          <a
+            href="https://www.rbsoft.com.mx/" target="_blank" rel="noopener noreferrer"
+            className="block text-center text-[9px] text-slate-700 hover:text-slate-500 font-bold tracking-wider transition-colors pt-1"
+          >
+            Sistema por RB Soft
+          </a>
         </div>
       </aside>
 

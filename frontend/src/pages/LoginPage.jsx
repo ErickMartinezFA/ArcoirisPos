@@ -111,6 +111,13 @@ function LoginPage() {
             {msg}
           </div>
         )}
+
+        <a
+          href="https://www.rbsoft.com.mx/" target="_blank" rel="noopener noreferrer"
+          className="block text-center text-[9px] text-slate-700 hover:text-slate-500 font-bold tracking-wider transition-colors mt-6"
+        >
+          Sistema por RB Soft
+        </a>
       </div>
     </div>
   );
